@@ -1,4 +1,4 @@
-# bggupload - BGG Interactive Upload Tool
+# bggupload - BGG Interactive Upload Tool 
 
 >This is experimental software in an Alpha release. Expect problems and difficulties at this point. The developer is seeking problem reports via https://github.com/HiGregSmith/bggupload/issues
 

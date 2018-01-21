@@ -20,6 +20,16 @@
 # A single row is written to the output CSV file corresponding to the selection,
 # and the row is removed from the UI.
 
+
+# HISTORY
+# January 2018 #######################################################
+    # get zip file from module file location instead of directory where program is started
+    # added column matching dialog
+    # capture all CSV data and carry through to output.
+    # When importing, queue items for background processing.
+    # Added status bar thread, but not yet extensively used, the output debugging window is still the primary status.
+#
+
 from __future__ import print_function
 # This must be the first statement before other statements.
 # You may only put a quoted or triple quoted string, 
@@ -46,9 +56,15 @@ import lxml.html
 #pip install python-dateutil
 import dateutil
 import re
+from xlrd import open_workbook
+
+# use a ListCtrl in report mode with a 
+# single column and with the header turned off.  It looks and acts almost like a ListBox in that case. 
 
 
-
+modulefile = sys.modules[__name__].__file__
+modulefolder = os.path.dirname(modulefile)
+print(modulefolder)
 
 app = wx.App(False)  # Create a new app, don't redirect stdout/stderr to a window.
 
@@ -113,6 +129,34 @@ SearchQueue = queue.Queue()
 SearchList = []
 SearchThread = None
 
+
+#######################################################
+#############   Status Threading Begin    #############
+#######################################################
+StatusQueue = queue.Queue()
+StatusThread = None
+def StatusThreadStart():
+    global StatusThread
+    if StatusThread is None:
+        StatusThread = threading.Thread(target=StatusThreadFunction, name="StatusThread", args=(), kwargs={}, daemon=False)#, *, daemon=None)
+        StatusThread.start()
+
+def StatusThreadFunction():
+    while True:
+        currentStatus = StatusQueue.get()
+        wx.CallAfter(UpdateStatus,currentStatus)
+        
+def UpdateStatus(statusstring):
+    try:
+        mframe.status.SetStatusText(statusstring)
+    except:
+        pass
+StatusQueue.put('Enter Search Term, Load a file, or click Help for more assistance!')
+#######################################################
+#############   Status Threading End      #############
+#######################################################
+
+
 preferences = {'fuzzymincount':2,'fuzzymaxcount':20,'fuzzyminscore':80}
 BggSummaryInfo = collections.namedtuple('BggSummaryInfo','category itemid itemtype itemname itemnametype itemyear')
 
@@ -159,7 +203,6 @@ def jsonzipload(filename):
 
 # objecttype is category ('thing' or 'family')
 # itemtype is 'standalone' or 'expansion'
-
 csv_output_headings = [
     'objectname', 'objectid', 'rating', 'numplays', 'weight',
     'own', 'fortrade', 'want', 'wanttobuy', 'wanttoplay',
@@ -199,6 +242,10 @@ class OutputManager():
         #with open(self.backupfile,'a') as csvfile:
             writer = csv.DictWriter(csvfile,fieldnames=csv_output_headings)
             for row in rows:
+                try:
+                    del(row['searchterm'])
+                except:
+                    pass
                 writer.writerow(row)
                 print('OUTPUT: ({})\n{}'.format(outputmgr.backupfile,row))
 outputmgr = OutputManager()
@@ -441,7 +488,7 @@ print('Reading Name / BGGID database files.')
 # for s,i in filter(lambda x: len(x[0]) > 1,idsbyset.items()):
     # print(s,len(i))
 
-s = jsonzipload('data_json.zip')
+s = jsonzipload(os.path.join(modulefolder,'data_json.zip'))
 fullbgg4 = {} #collections.defaultdict(list)
 #byid = {'thing':{},'family':{}}
 
@@ -453,7 +500,7 @@ for line in s:
         continue
     fullbgg4.setdefault((line.itemtype,line.itemid),[]).append(line)
 
-print('FULLBGG4',set([itemtype for itemtype, itemid in fullbgg4.keys()]))
+#print('FULLBGG4',set([itemtype for itemtype, itemid in fullbgg4.keys()]))
 # # here, check that every boardgameexpansion has a
 # # corresponding boardgame with same name and year
 # for id, values in bggr.fullbgg2['boardgameexpansion'].items():
@@ -501,14 +548,16 @@ def SearchThreadFunction():
     global SearchThread
     print ('Start Search Thread.')
     while not SearchStop and not SearchQueue.empty():
-        searchterm = SearchQueue.get()
+        data = SearchQueue.get()
+        searchterm = data.get('searchterm') or data.get('objectname')
+        data['objectname']=searchterm
         print ('\tThread:',searchterm,SearchQueue.qsize())
-        process_row({'objectname':searchterm})
+        process_row(data)
         #tree = searchname(searchterm)
         sleep(3)
     SearchThread = None
     print ('End Search Thread.')
-    
+
 def SearchQueueStart():
     global SearchThread
     if SearchThread is None:
@@ -574,11 +623,91 @@ class import_coolstuffemail():
 #######################################################
 #############   CoolStuff End    ######################
 #######################################################
+#https://stackoverflow.com/questions/11314339/make-column-width-take-up-available-space-in-wxpython-listctrl
+class ColumnsMatch(bggupload_gui.ColumnMatcher):
+    def getmatchlist(self):
+        match = []
+        for index in range(self.ColumnsMatchList.GetItemCount()):
+            match.append((
+                self.ColumnsMatchList.GetItemText(index,col=0),
+                self.ColumnsMatchList.GetItemText(index,col=1),
+                ))
+        return match
+        
+    def __init__(self,parent,listleft,listright,automatch=False,*args,**kwargs):
+        super(ColumnsMatch,self).__init__(parent,*args,**kwargs)
+        listmatch = []
+        list1 = list(listleft)
+        list2 = list(listright)
+        #rightset = set(listright)
+        for match in list(listleft):
+            #print(match)
+            if match in listright:
+                #print('yes')
+                listmatch.append((match,match))
+                list2.remove(match)
+                list1.remove(match)
+        
+        print(len(list1),len(list2),len(listmatch),)
+
+        self.SetTitle('Column Matcher')
+        self.ColumnsExportList.ClearAll()
+        self.ColumnsExportList.AppendColumn('Export Column')
+        self.ColumnsImportList.ClearAll()
+        self.ColumnsImportList.AppendColumn('Import Column')
+        self.ColumnsMatchList.AppendColumn('Export')
+        self.ColumnsMatchList.AppendColumn('Import')
+        for header in list1:
+            self.ColumnsExportList.Append([header])
+        for header in list2:
+            self.ColumnsImportList.Append([header])
+        for header in listmatch:
+            self.ColumnsMatchList.Append(header)
+        self.Show()
+        
+    def unmatch(self,event):
+        index = self.ColumnsMatchList.GetFirstSelected()
+        while index != -1:
+            try:
+                e = self.ColumnsMatchList.GetItemText(index,col=0)
+                i = self.ColumnsMatchList.GetItemText(index,col=1)
+                self.ColumnsExportList.Append([e])
+                self.ColumnsImportList.Append([i])
+                self.ColumnsMatchList.DeleteItem(index)
+                index = self.ColumnsMatchList.GetNextSelected(index)
+            except:
+                raise
+                
+    def match(self,event):
+        try:
+            eindex = self.ColumnsExportList.GetFirstSelected()
+            iindex = self.ColumnsImportList.GetFirstSelected()
+            
+            if (eindex != -1 and iindex != -1):
+                e = self.ColumnsExportList.GetItemText(eindex)
+                i = self.ColumnsImportList.GetItemText(iindex)
+                self.ColumnsMatchList.Append((e,i))
+                
+                self.ColumnsExportList.DeleteItem(eindex)
+                self.ColumnsImportList.DeleteItem(iindex)
+                self.ColumnsExportList.Select(0)
+                print('match',e,i)
+        except:
+            raise
+    def resize(self,event):
+        listctrl = event.GetEventObject()
+        count = listctrl.GetColumnCount()
+        width,height = listctrl.GetClientSize()
+        colwidth = width/count
+        for col in range(count):
+            listctrl.SetColumnWidth(col,colwidth)
+#cm = ColumnsMatch(None,csv_output_headings,csv_output_headings)
 
 #######################################################
 ##########   Import CSV    ############################
 #######################################################
-class import2_csv():
+class import_csv():
+    """This becomes the default if no other importer works."""
     # rows1 = []
     # rowsmulti = []
     # with open(filename, 'r') as csvfile:
@@ -717,6 +846,7 @@ class import_miniaturemarket():
 ##########   Import False   ###########################
 #######################################################
 class import_false():
+    """For testing"""
     # def __init__(self):
         # pass
     def canimport(self,stream):
@@ -729,7 +859,13 @@ class import_false():
 importers = list(filter(lambda x: x.startswith('import_'),dir()))#__builtins__)))
 #importers
 #print(dir(__builtins__))
-print('IMPORTERS:\n\t{}\n\t'.format('\n\t'.join(map(lambda x: x[len('import_'):],importers))))
+#print('IMPORTERS:\n\t{}\n\t'.format('\n\t'.join(map(lambda x: x[len('import_'):],importers))))
+for i in importers:
+    iclass = globals()[i]
+    print(i[7:].upper())
+    print('      ',iclass.__doc__)
+    print()
+
 # for filename in ['coolstuff1.txt','mm1.txt']:
     # print('FILE: {}'.format(filename))
     # with open(filename,'r') as f:
@@ -770,9 +906,11 @@ class gui(bggupload_gui.mainframe):
         #self.rowbyitem = {}
         #self.rowsgui = []
         #self.databyitem = {}
-        
+        self.databyrow = {}
         self.current = None
         #self.searchbylabel = {}
+    def GetRowData(self,row):
+        return self.databyrow[row]
         
     def GetData(self,item):
         return self.databyitem[item]
@@ -785,9 +923,11 @@ class gui(bggupload_gui.mainframe):
             msg = "You must first select an item within the row to delete."
             wx.MessageDialog(None,msg).ShowModal()
 
-    def AddRow(self):
+    def AddRow(self,data):
+        print('Adding row:',data)
         parent = self.mainwindow
         row = wx.Panel( parent, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
+        self.databyrow[row] = data
         bsizer = wx.BoxSizer( wx.HORIZONTAL )
         row.SetSizer( bsizer )
         row.Layout()
@@ -856,13 +996,18 @@ class gui(bggupload_gui.mainframe):
         print('search')
         searchterm = self.searchbox.GetValue()
         self.searchbox.SetSelection(-1,-1)
+        self.AddToQueue({'searchterm':searchterm})
+        event.Skip()
+        
+    def AddToQueue(self,data):
+        searchterm = data.get('searchterm',None) or data.get('objectname',None)
         t=wx.StaticText(self.importlist,label=searchterm)
         self.importlist.GetSizer().Add(t)
         self.importlist.Layout()
         # add to search queue and start search
-        SearchQueue.put(searchterm)
+        SearchQueue.put(data)
         SearchQueueStart()
-        event.Skip()
+
         
     def About(self,event):
         d=bggupload_gui.helpdialog(self)
@@ -912,7 +1057,7 @@ class gui(bggupload_gui.mainframe):
                                 print('YEP, got {} rows!'.format(len(rows)))
                                 # DO STUFF WITH ROWS HERE
                                 for row in rows:
-                                    process_row(row)
+                                    mframe.AddToQueue(row)
                                 #print(rows)
                                 break
                             
@@ -1043,18 +1188,22 @@ class ImgPanel(wx.Panel,wx.ClientDataContainer):
     def SetCurrent(self):
         self.ClearCurrent()
         mframe.current = self
-        print('SetCurrent')
+        #print('SetCurrent')
         self.SetBackgroundColour('green')
         self.Refresh()
         itype,id = item2idt[self]
-        print('SetCurrent',itype,id)
         #names = '{} {}'.format(str(id),
         pri = [line.itemname for line in filter(lambda x: x.itemnametype=='primary', fullbgg4[(itype,id)])]
         alt = [line.itemname for line in filter(lambda x: x.itemnametype!='primary', fullbgg4[(itype,id)])]
+        print('Highlighted',itype,id, ', '.join(pri))
         if alt:
             label='{} alt: {}'.format(' | '.join(pri),' | '.join(alt))
         else:
             label='{}'.format(' | '.join(pri))
+        #print()
+        data = mframe.GetRowData(self.GetParent())
+        searchterm = data.get('searchterm',None) or data.get('objectname',None)
+        mframe.searchbox.SetValue(searchterm)
         mframe.infolink.SetToolTip('{}:{}'.format(itype,id))
         mframe.infolink.SetLabel(label)
         mframe.infolink.SetURL(r'https://boardgamegeek.com/{}/{}/'.format(cat[itype],str(id)))
@@ -1083,7 +1232,7 @@ class ImgPanel(wx.Panel,wx.ClientDataContainer):
     def HoverDisplay(self,event):
         object = event.GetEventObject().GetParent()
         itype,id = item2idt[object]
-        print('hover {} {}'.format(itype,id))
+        #print('hover {} {}'.format(itype,id))
         
         event.Skip()
 
@@ -1097,29 +1246,37 @@ class ImgPanel(wx.Panel,wx.ClientDataContainer):
         # else:
             # imgpanel.SetFocus()
         #self.focus(imgpanel)
-        print('click {}'.format(item2idt[imgpanel]))
+        #print('click {}'.format(item2idt[imgpanel]))
         event.Skip()
 
     def DClickItem(self,event):
-        print("item dclicked")
+        #print("item dclicked")
         object = event.GetEventObject()
         object._selected = True
         
-        p = object.GetParent()
-        data = fullbgg4[p._data]
-        print('data',data)
-        data = {
-            'objectid':data[0].itemid,
-            'yearpublished':data[0].itemyear,
-            #'':data[0].itemtype,
-            'objecttype':data[0].category,
+        p = object.GetParent() # Get ImgPanel
+        rowobject = p.GetParent()
+        dataorig = mframe.GetRowData(rowobject)
+        datanew = fullbgg4[p._data]
+        
+        print('data',datanew)
+        datanew = {
+            'objectid':datanew[0].itemid,
+            #'yearpublished':datanew[0].itemyear,
+            #'':datanew[0].itemtype,
+            #'objecttype':datanew[0].category,
             'own':1,
         }
+        dataorig.update(datanew)
         #p.guiinstance.SelectRowItem(self)
         #mframe.SelectRowItem(p)
-        #data = mframe.GetData(p)
-        outputmgr.saverows([data]) # hash of values corresponding to CSV columns
-        mframe.DeleteRow(p.GetParent())
+        #datanew = mframe.GetData(p)
+        
+        row = p.GetParent()
+        rowdata = mframe.GetRowData(row)
+        print('ROWDATA',rowdata)
+        outputmgr.saverows([dataorig]) # hash of values corresponding to CSV columns
+        mframe.DeleteRow(row)
         mframe.GetSizer().Layout()
     def GetStatus(self):
         return self._status
@@ -1434,7 +1591,7 @@ def matchname(name):
     #results = process.extract(name,choices,scorer=fuzz.ratio,limit=5)
     #results = process.extractOne(name,choices,score_cutoff=90)#,limit=5)
     # fuzzycount':2,'fuzzyminscore
-    print('process.extract...')#,end='')
+    print('Searching local database...')#,end='')
     results = process.extract(name,choices,limit=preferences['fuzzymaxcount'])
     resultsabovemin = list(filter(lambda x: x[1] >= preferences['fuzzyminscore'],results))
     print('done.')
@@ -1448,7 +1605,7 @@ def matchname(name):
     return results
     # bggr = ReadBGGResults(); bggr.getall(); len(bggr.idbyname); len(bggr.fullbgg['boardgame'])
 def searchname(name):
-    print('Looking for: {}...'.format(name),end='')
+    print('Searching BGG for: {}...'.format(name),end='')
     time.sleep(2)
     tree = search(name,exact=1)
     if len(tree) == 0:
@@ -1460,14 +1617,14 @@ def searchname(name):
 
 MatchItem = collections.namedtuple("MatchItem","id itype thumbstream score")
 item2idt = {}
-def process_row(row):
-    id = row.get('objectid',None)
+def process_row(rowdata):
+    id = rowdata.get('objectid',None)
     if id is None or id == '':
         try:
-            name = row['objectname']
+            name = rowdata['objectname']
         except:
             return
-            print(row)
+            print(rowdata)
             #continue
         if upc_common.isupc(name):
             print('isupc:',name)
@@ -1497,13 +1654,13 @@ def process_row(row):
         #print('('+str(len(tree))+') '+' '.join(idlist))
     #print()
         if len(idlist) == 1:
-            #print(dir(row))
-            row['objectid'] = idlist[0][0]
-            row['objecttype'] = idlist[0][1]
-            #rows1.append(row)
+            #print(dir(rowdata))
+            rowdata['objectid'] = idlist[0][0]
+            rowdata['objecttype'] = idlist[0][1]
+            #rows1.append(rowdata)
             
         if len(matchlist) > 1:
-            #rowsmulti.append(row)
+            #rowsmulti.append(rowdata)
             print('pre matchlist',matchlist)
             idthumburl = getthumbnails(list(set([(m[0],m[1]) for m in matchlist])))
             # returns list of id,t,thumb
@@ -1515,9 +1672,9 @@ def process_row(row):
                     continue
                 pset.add(key)
                 try:
-                    print('?',end='')
+                    #print('?',end='')
                     r = list(filter(lambda x: x[0]==m[0] and x[1]==m[1] ,idthumburl))[0]
-                    print('r',r)
+                    #print('r',r)
                 except:
                     print("Doesn't match",m)
                     r=(None,'https://cf.geekdo-images.com/images/pic1657689_t.jpg',None)
@@ -1526,12 +1683,12 @@ def process_row(row):
             # for id,t,thumb in idthumburl:
                 # matchlist.append(MatchItem(id,t,getseekablestream(thumb),100))
             #print('post',resultmatchlist)
-        wx.CallAfter(append_gui_row,resultmatchlist)
+        wx.CallAfter(append_gui_row,resultmatchlist,rowdata)
 
-def append_gui_row(matchlist,row=None):
+def append_gui_row(matchlist,data,row=None):
     print('append_gui_row',len(matchlist))
     if row is None:
-        r = mframe.AddRow()
+        r = mframe.AddRow(data)
     else:
         r = None
         raise
@@ -1542,7 +1699,7 @@ def append_gui_row(matchlist,row=None):
         #bsi = fullbgg4[(itype,id)]
         bsi = list(filter(lambda x: x.itemnametype=='primary',fullbgg4[(matchitem.itype,matchitem.id)]))[0]
         #url = fullurl('thing',{'id':bsi.itemid,'type':bsi.itemtype})
-        print('matchid',matchitem.id)
+        #print('matchid',matchitem.id)
         paren = ''
         if fullbgg4.get(('boardgameexpansion',matchitem.id),None) is not None:
             paren = 'expansion '
@@ -1556,7 +1713,7 @@ def append_gui_row(matchlist,row=None):
             matchitem.thumbstream,
             '{n}\n({y}) fuzzy:{s}'.format(s=matchitem.score,n=bsi.itemname,y=paren),
             url,
-            (matchitem.itype,matchitem.id),
+            (matchitem.itype,matchitem.id), # <---- data
             matchitem.score,
             mframe,
             tip=str(bsi)
@@ -1603,6 +1760,7 @@ def process_csv(filename):
 
 mframe = gui(None)
 mframe.Show(True)
+StatusThreadStart()
 app.MainLoop()
 sys.exit()
 

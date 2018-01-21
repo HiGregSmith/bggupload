@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*- 
 
 ###########################################################################
-## Python code generated with wxFormBuilder (version Nov  6 2017)
+## Python code generated with wxFormBuilder (version Jun 28 2017)
 ## http://www.wxformbuilder.org/
 ##
-## PLEASE DO *NOT* EDIT THIS FILE!
+## PLEASE DO "NOT" EDIT THIS FILE!
 ###########################################################################
 
 import wx
-import wx.xrc
 import wx.adv
+import wx.xrc
 
 ###########################################################################
 ## Class mainframe
@@ -27,7 +27,7 @@ class mainframe ( wx.Frame ):
 		bSizer5 = wx.BoxSizer( wx.HORIZONTAL )
 		
 		searchboxChoices = []
-		self.searchbox = wx.ComboBox( self, wx.ID_ANY, u"Search", wx.DefaultPosition, wx.DefaultSize, searchboxChoices, wx.TE_PROCESS_ENTER )
+		self.searchbox = wx.ComboBox( self, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, searchboxChoices, wx.TE_PROCESS_ENTER )
 		bSizer5.Add( self.searchbox, 1, wx.ALL, 0 )
 		
 		searchtypeChoices = [ u"UPC Auto", u"UPC", u"Text" ]
@@ -222,7 +222,7 @@ class MyFrame2 ( wx.Frame ):
 class helpdialog ( wx.Dialog ):
 	
 	def __init__( self, parent ):
-		wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = wx.EmptyString, pos = wx.DefaultPosition, size = wx.Size( 909,292 ), style = wx.DEFAULT_DIALOG_STYLE|wx.MAXIMIZE_BOX|wx.MINIMIZE_BOX|wx.RESIZE_BORDER|wx.STAY_ON_TOP )
+		wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = wx.EmptyString, pos = wx.DefaultPosition, size = wx.Size( 909,638 ), style = wx.DEFAULT_DIALOG_STYLE|wx.MAXIMIZE_BOX|wx.MINIMIZE_BOX|wx.RESIZE_BORDER )
 		
 		self.SetSizeHints( wx.DefaultSize, wx.DefaultSize )
 		
@@ -239,5 +239,96 @@ class helpdialog ( wx.Dialog ):
 	
 	def __del__( self ):
 		pass
+	
+
+###########################################################################
+## Class ColumnMatcher
+###########################################################################
+
+class ColumnMatcher ( wx.Frame ):
+	
+	def __init__( self, parent ):
+		wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = wx.EmptyString, pos = wx.DefaultPosition, size = wx.Size( 798,630 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
+		
+		self.SetSizeHints( wx.DefaultSize, wx.DefaultSize )
+		
+		bSizer9 = wx.BoxSizer( wx.HORIZONTAL )
+		
+		self.m_panel4 = wx.Panel( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
+		bSizer13 = wx.BoxSizer( wx.VERTICAL )
+		
+		self.ColumnsExportList = wx.ListCtrl( self.m_panel4, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_REPORT )
+		bSizer13.Add( self.ColumnsExportList, 1, wx.ALL|wx.EXPAND, 5 )
+		
+		
+		self.m_panel4.SetSizer( bSizer13 )
+		self.m_panel4.Layout()
+		bSizer13.Fit( self.m_panel4 )
+		bSizer9.Add( self.m_panel4, 1, wx.EXPAND |wx.ALL, 5 )
+		
+		self.m_panel41 = wx.Panel( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
+		bSizer131 = wx.BoxSizer( wx.VERTICAL )
+		
+		self.ColumnsImportList = wx.ListCtrl( self.m_panel41, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_REPORT )
+		bSizer131.Add( self.ColumnsImportList, 1, wx.ALL|wx.EXPAND, 5 )
+		
+		
+		self.m_panel41.SetSizer( bSizer131 )
+		self.m_panel41.Layout()
+		bSizer131.Fit( self.m_panel41 )
+		bSizer9.Add( self.m_panel41, 1, wx.ALL|wx.EXPAND, 5 )
+		
+		self.m_panel3 = wx.Panel( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
+		bSizer10 = wx.BoxSizer( wx.VERTICAL )
+		
+		self.m_button1 = wx.Button( self.m_panel3, wx.ID_ANY, u"Match", wx.DefaultPosition, wx.DefaultSize, 0 )
+		bSizer10.Add( self.m_button1, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 5 )
+		
+		self.m_button2 = wx.Button( self.m_panel3, wx.ID_ANY, u"< Unmatch", wx.DefaultPosition, wx.DefaultSize, 0 )
+		bSizer10.Add( self.m_button2, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 5 )
+		
+		self.ColumnsMatchList = wx.ListCtrl( self.m_panel3, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_REPORT )
+		bSizer10.Add( self.ColumnsMatchList, 1, wx.ALL|wx.EXPAND, 5 )
+		
+		
+		self.m_panel3.SetSizer( bSizer10 )
+		self.m_panel3.Layout()
+		bSizer10.Fit( self.m_panel3 )
+		bSizer9.Add( self.m_panel3, 1, wx.EXPAND |wx.ALL, 5 )
+		
+		
+		self.SetSizer( bSizer9 )
+		self.Layout()
+		
+		self.Centre( wx.BOTH )
+		
+		# Connect Events
+		self.ColumnsExportList.Bind( wx.EVT_LIST_ITEM_ACTIVATED, self.match )
+		self.ColumnsExportList.Bind( wx.EVT_SIZE, self.resize )
+		self.ColumnsImportList.Bind( wx.EVT_LIST_ITEM_ACTIVATED, self.match )
+		self.ColumnsImportList.Bind( wx.EVT_SIZE, self.resize )
+		self.m_button1.Bind( wx.EVT_BUTTON, self.match )
+		self.m_button2.Bind( wx.EVT_BUTTON, self.unmatch )
+		self.ColumnsMatchList.Bind( wx.EVT_LIST_ITEM_ACTIVATED, self.unmatch )
+		self.ColumnsMatchList.Bind( wx.EVT_SIZE, self.resize )
+	
+	def __del__( self ):
+		pass
+	
+	
+	# Virtual event handlers, overide them in your derived class
+	def match( self, event ):
+		event.Skip()
+	
+	def resize( self, event ):
+		event.Skip()
+	
+	
+	
+	
+	def unmatch( self, event ):
+		event.Skip()
+	
+	
 	
 
