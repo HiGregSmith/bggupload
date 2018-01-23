@@ -30,6 +30,15 @@
     # Added status bar thread, but not yet extensively used, the output debugging window is still the primary status.
 #
 
+
+# preferences
+# 'HOME'   : os.path.expanduser('~'),
+# USERSAVEPATH : os.path.join(HOME, 'bggupload'),
+
+    # if not os.path.exists(USERSAVEPATH):
+        # os.makedirs(USERSAVEPATH)
+        # output('created ~/bggupload')
+
 from __future__ import print_function
 # This must be the first statement before other statements.
 # You may only put a quoted or triple quoted string, 
@@ -222,6 +231,7 @@ csv_output_headings = [
 #objectname	objectid	rating	numplays	weight	own	fortrade	want	wanttobuy	wanttoplay	prevowned	preordered	wishlist	wishlistpriority	wishlistcomment	comment	conditiontext	haspartslist	wantpartslist	collid	baverage	average	avgweight	rank	numowned	objecttype	originalname	minplayers	maxplayers	playingtime	maxplaytime	minplaytime	yearpublished	bggrecplayers	bggbestplayers	bggrecagerange	bgglanguagedependence	publisherid	imageid	year	language	other	itemtype	pricepaid	pp_currency	currvalue	cv_currency	acquisitiondate	acquiredfrom	quantity	privatecomment	version_publishers	version_languages	version_yearpublished	version_nickname
 
 class OutputManager():
+    
     def __init__(self,filebase='BggUploadSaveFile'):
         # very inefficient, but should work
         count = 0
@@ -231,6 +241,7 @@ class OutputManager():
                 break
             count += 1
             
+        self.fullpath = os.path.abspath(self.backupfile)
         with codecs.open(self.backupfile,'w', encoding='utf-8') as csvfile:
         #with open(self.backupfile,'w') as csvfile:
             writer = csv.DictWriter(csvfile,fieldnames=csv_output_headings)
@@ -627,85 +638,138 @@ class import_coolstuffemail():
 class ColumnsMatch(bggupload_gui.ColumnMatcher):
     def getmatchlist(self):
         match = []
-        for index in range(self.ColumnsMatchList.GetItemCount()):
+        for index in range(self.listcontrols[2].GetItemCount()):
             match.append((
-                self.ColumnsMatchList.GetItemText(index,col=0),
-                self.ColumnsMatchList.GetItemText(index,col=1),
+                self.listcontrols[2].GetItemText(index,col=0),
+                self.listcontrols[2].GetItemText(index,col=1),
                 ))
         return match
-        
-    def __init__(self,parent,listleft,listright,automatch=False,*args,**kwargs):
+    def load(self,event):
+        lists = collections.defaultdict(list)
+        with codecs.open('matchfile.csv', 'r', encoding='utf-8') as f:
+            for line in f:
+                linevals = line.strip().split(',')
+                key = linevals[0]
+                vals = linevals[1:]
+                # if not isinstance(vals,list):
+                    # print('not list')
+                lists[key].append(vals)
+        self.resetlists(lists.get('list1',[]),lists.get('list2',[]),lists.get('listmatch',[]))
+        # wx.QueueEvent(self,) or wx.PostEvent()
+        # wx.EventHandler()
+        # wx.Event()
+    def save(self,event):
+        with codecs.open('matchfile.csv', 'w', encoding='utf-8') as f:
+            for listname, wxcontrol in (('list1',self.listcontrols[1]),
+                                        ('list2',self.listcontrols[0]),
+                                        ('listmatch',self.listcontrols[2])):
+                ccount = wxcontrol.GetColumnCount()
+                for i in range(wxcontrol.GetItemCount()):
+                    v = [wxcontrol.GetItemText(i,col=c) for c in range(ccount)]
+                    f.write(','.join((listname,*v)))
+                    f.write('\n')
+        event.Skip()
+    #self.listcontrols[]
+    def __init__(self,parent,listleft,listright,automatch=False,title='Column Matcher',*args,**kwargs):
         super(ColumnsMatch,self).__init__(parent,*args,**kwargs)
+        self.SetTitle(title)
+        self.listcontrols = list(filter(lambda x: isinstance(x,wx.ListCtrl),list(self.ListsPanel.GetChildren())))
+        print('LC',self.listcontrols)
         listmatch = []
         list1 = list(listleft)
         list2 = list(listright)
+        setright = set([x[0] for x in listright])
         #rightset = set(listright)
-        for match in list(listleft):
+        for match in listleft:
             #print(match)
             if match in listright:
                 #print('yes')
-                listmatch.append((match,match))
+                listmatch.append((match[0],match[0]))
                 list2.remove(match)
                 list1.remove(match)
         
         print(len(list1),len(list2),len(listmatch),)
 
-        self.SetTitle('Column Matcher')
-        self.ColumnsExportList.ClearAll()
-        self.ColumnsExportList.AppendColumn('Export Column')
-        self.ColumnsImportList.ClearAll()
-        self.ColumnsImportList.AppendColumn('Import Column')
-        self.ColumnsMatchList.AppendColumn('Export')
-        self.ColumnsMatchList.AppendColumn('Import')
-        for header in list1:
-            self.ColumnsExportList.Append([header])
-        for header in list2:
-            self.ColumnsImportList.Append([header])
-        for header in listmatch:
-            self.ColumnsMatchList.Append(header)
-        self.Show()
+        print(list1,list2,type(listmatch))
+        self.resetlists(list1,list2,listmatch)
         
+        self.MakeModal()
+    def MakeModal(self, modal=True):
+        if modal and not hasattr(self, '_disabler'):
+            self._disabler = wx.WindowDisabler(self)
+        if not modal and hasattr(self, '_disabler'):
+            del self._disabler
+    def resetlists(self,list1,list2,listmatch):
+        self.listcontrols[1].ClearAll()
+        self.listcontrols[1].AppendColumn('Export Column')
+        self.listcontrols[0].ClearAll()
+        self.listcontrols[0].AppendColumn('Import Column')
+        self.listcontrols[2].ClearAll()
+        self.listcontrols[2].AppendColumn('Export')
+        self.listcontrols[2].AppendColumn('Import')
+        print('RL',list1,list2,listmatch)
+        for item in list1:
+            print(item)
+            self.listcontrols[1].Append(item)
+        for item in list2:
+            self.listcontrols[0].Append(item)
+        for item in listmatch:
+            # print(item)
+            # if not isinstance(item,tuple):
+                # print('not list')
+            self.listcontrols[2].Append(item)
+        for w in (self.listcontrols[1],self.listcontrols[0],self.listcontrols[2]):
+            event = wx.SizeEvent(w.GetSize(),w.GetId())
+            event.SetEventObject(w)
+            wx.QueueEvent(w.GetEventHandler(), event)
+
+
+
     def unmatch(self,event):
-        index = self.ColumnsMatchList.GetFirstSelected()
+        lastindex = None
+        index = self.listcontrols[2].GetFirstSelected()
         while index != -1:
             try:
-                e = self.ColumnsMatchList.GetItemText(index,col=0)
-                i = self.ColumnsMatchList.GetItemText(index,col=1)
-                self.ColumnsExportList.Append([e])
-                self.ColumnsImportList.Append([i])
-                self.ColumnsMatchList.DeleteItem(index)
-                index = self.ColumnsMatchList.GetNextSelected(index)
+                e = self.listcontrols[2].GetItemText(index,col=0)
+                i = self.listcontrols[2].GetItemText(index,col=1)
+                self.listcontrols[1].Append([e])
+                self.listcontrols[0].Append([i])
+                self.listcontrols[2].DeleteItem(index)
+                lastindex = index
+                index = self.listcontrols[2].GetNextSelected(index)
             except:
                 raise
+        if lastindex is not None:
+            self.listcontrols[2].Select(lastindex)
                 
     def match(self,event):
         try:
-            eindex = self.ColumnsExportList.GetFirstSelected()
-            iindex = self.ColumnsImportList.GetFirstSelected()
+            eindex = self.listcontrols[1].GetFirstSelected()
+            iindex = self.listcontrols[0].GetFirstSelected()
             
             if (eindex != -1 and iindex != -1):
-                e = self.ColumnsExportList.GetItemText(eindex)
-                i = self.ColumnsImportList.GetItemText(iindex)
-                self.ColumnsMatchList.Append((e,i))
+                e = self.listcontrols[1].GetItemText(eindex)
+                i = self.listcontrols[0].GetItemText(iindex)
+                self.listcontrols[2].Append((e,i))
                 
-                self.ColumnsExportList.DeleteItem(eindex)
-                self.ColumnsImportList.DeleteItem(iindex)
-                self.ColumnsExportList.Select(0)
-                print('match',e,i)
+                self.listcontrols[1].DeleteItem(eindex)
+                self.listcontrols[0].DeleteItem(iindex)
+                self.listcontrols[1].Select(0)
+                print('Match Columns',e,i)
         except:
             raise
     def resize(self,event):
         listctrl = event.GetEventObject()
+        #print('resize',listctrl)
         count = listctrl.GetColumnCount()
         width,height = listctrl.GetClientSize()
         colwidth = width/count
         for col in range(count):
             listctrl.SetColumnWidth(col,colwidth)
-#cm = ColumnsMatch(None,csv_output_headings,csv_output_headings)
 
 #######################################################
 ##########   Import CSV    ############################
-#######################################################
+######### ##############################################
 class import_csv():
     """This becomes the default if no other importer works."""
     # rows1 = []
@@ -715,22 +779,63 @@ class import_csv():
         # reader = csv.DictReader(csvfile)
         # for row in reader:
             # process_row(row)
-            
+    
     def __init__(self):
         pass
     def canimport(self,stream):
         try:
-            reader = csv.DictReader(stream)
+            sniff = csv.Sniffer()
+            sample = stream.read(1024)
+            self.dialect = sniff.sniff(sample)
+            stream.seek(0)
+            # reader = csv.reader(stream, dialect)
+            # # ... process CSV file contents here ...
+            if not sniff.has_header(sample):
+                return False # Must have header
+            reader = csv.DictReader(stream, dialect=self.dialect)
+            self.inputfieldnames = reader.fieldnames
             for row in reader:
                 pass
             return True
         except:
+            print('Error in csv')
+            raise
             return False
-    def getrows(self,stream):
+    def getrows(self,stream,title='Column Matcher'):
         rows = []
-        reader = csv.DictReader(stream)
+        reader = csv.DictReader(stream,dialect=self.dialect)
+        #headings = map(lambda x: list(x),csv_output_headings)
+        # headings = csv_output_headings
+        #self.resetlists(map(lambda x: tuple(x),list1),map(lambda x: tuple(x),list2),listmatch)
+
+        cm = ColumnsMatch(None,list(map(lambda x: (x,),csv_output_headings)),list(map(lambda x: (x,),self.inputfieldnames)),automatch=True,title=title)
+        matchdict = {}
+        
+        cm.ShowModal()
+        for e,i in cm.getmatchlist():
+            matchdict[i] = e
+        cm.Destroy()
+        print(matchdict)
+        # try:
+            # cm.ShowModal()
+        # except:
+            # cm.Show()
+            # cm.MakeModal(True)
+            
         for row in reader:
-            process_row(row)
+            #print('before',len(row.keys()))
+            for key in list(row.keys()):
+                if key in matchdict:
+                    if matchdict[key] != key:
+                        # move
+                        row[matchdict[key]] = row[key]
+                        del(row[key])
+                else:
+                    del(row[key])
+            for rowkey in row.keys():
+                print(rowkey,row[rowkey])
+            #print('after',len(row.keys()))
+            #process_row(row)
             rows.append(row)
         return rows
 
@@ -898,6 +1003,7 @@ If the row has a 'id', it is placed directly in the output file, if the row does
 
 Each row of images in the GUI represents an individual search. Select the one item per row that corresponds to the desired choice. Use the mouse and single click to navigate and browse. Double click to put the desired item into the output file.
 """
+# http://www.iconarchive.com/show/pretty-office-7-icons-by-custom-icon-design/Save-as-icon.html
 class gui(bggupload_gui.mainframe):
     def __init__(self,parent):
         bggupload_gui.mainframe.__init__(self,parent)
@@ -1001,6 +1107,7 @@ class gui(bggupload_gui.mainframe):
         
     def AddToQueue(self,data):
         searchterm = data.get('searchterm',None) or data.get('objectname',None)
+        print('Text label [{}] {}'.format(searchterm,data))
         t=wx.StaticText(self.importlist,label=searchterm)
         self.importlist.GetSizer().Add(t)
         self.importlist.Layout()
@@ -1047,16 +1154,22 @@ class gui(bggupload_gui.mainframe):
                     with open(filename, 'r') as f:
                         print('FILE: {}'.format(filename))
                         for importer in importers:
-                            print('Trying IMPORTER: {}  ...  '.format(importer),end='')
+#                            print('Trying IMPORTER: {}  ...  '.format(importer),end='')
                             impclass = globals()[importer]()
                             canimport = impclass.canimport(f)
-                            print(importer,canimport)
+                            # print(importer,canimport)
                             f.seek(0)
                             if canimport:
+                                print('Importing using {}.'.format(importer))
                                 rows = impclass.getrows(f)
-                                print('YEP, got {} rows!'.format(len(rows)))
+                                if not rows:
+                                    msg = "There are no rows in the input file."
+                                    wx.MessageDialog(None,msg).ShowModal()
+                                    break
+                                print('Importing {} rows.'.format(len(rows)))
                                 # DO STUFF WITH ROWS HERE
                                 for row in rows:
+                                    print('RK',list(row.keys()))
                                     mframe.AddToQueue(row)
                                 #print(rows)
                                 break
@@ -1759,6 +1872,8 @@ def process_csv(filename):
     # print ' '.join(row).encode("utf-8")
 
 mframe = gui(None)
+mframe.SetTitle(outputmgr.backupfile)
+#mframe.SetTitle(outputmgr.fullpath)
 mframe.Show(True)
 StatusThreadStart()
 app.MainLoop()

@@ -242,59 +242,103 @@ class helpdialog ( wx.Dialog ):
 	
 
 ###########################################################################
-## Class ColumnMatcher
+## Class ColumnMatcherFrame
 ###########################################################################
 
-class ColumnMatcher ( wx.Frame ):
+class ColumnMatcherFrame ( wx.Frame ):
 	
 	def __init__( self, parent ):
 		wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = wx.EmptyString, pos = wx.DefaultPosition, size = wx.Size( 798,630 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
 		
 		self.SetSizeHints( wx.DefaultSize, wx.DefaultSize )
 		
+		ListsSizer2 = wx.BoxSizer( wx.HORIZONTAL )
+		
+		self.ColumnsExportList = wx.ListCtrl( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_REPORT )
+		ListsSizer2.Add( self.ColumnsExportList, 1, wx.ALL|wx.EXPAND, 5 )
+		
+		self.ColumnsImportList = wx.ListCtrl( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_REPORT )
+		ListsSizer2.Add( self.ColumnsImportList, 1, wx.ALL|wx.EXPAND, 5 )
+		
+		self.ColumnsMatchList = wx.ListCtrl( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_REPORT )
+		ListsSizer2.Add( self.ColumnsMatchList, 1, wx.ALL|wx.EXPAND, 5 )
+		
+		
+		self.SetSizer( ListsSizer2 )
+		self.Layout()
+		self.m_toolBar1 = self.CreateToolBar( wx.TB_HORIZONTAL, wx.ID_ANY ) 
+		self.m_tool1 = self.m_toolBar1.AddLabelTool( wx.ID_ANY, u"Load", wx.Bitmap( u"icons/Open-file-icon.png", wx.BITMAP_TYPE_ANY ), wx.NullBitmap, wx.ITEM_NORMAL, wx.EmptyString, wx.EmptyString, None ) 
+		
+		self.m_tool2 = self.m_toolBar1.AddLabelTool( wx.ID_ANY, u"Save", wx.Bitmap( u"icons/Save-as-icon32.png", wx.BITMAP_TYPE_ANY ), wx.NullBitmap, wx.ITEM_NORMAL, wx.EmptyString, wx.EmptyString, None ) 
+		
+		self.m_tool3 = self.m_toolBar1.AddLabelTool( wx.ID_ANY, u"Match", wx.Bitmap( u"icons/equal-mathematical-sign.png", wx.BITMAP_TYPE_ANY ), wx.NullBitmap, wx.ITEM_NORMAL, wx.EmptyString, wx.EmptyString, None ) 
+		
+		self.m_tool4 = self.m_toolBar1.AddLabelTool( wx.ID_ANY, u"Unmatch", wx.Bitmap( u"icons/is-not-equal-to-mathematical-symbol.png", wx.BITMAP_TYPE_ANY ), wx.NullBitmap, wx.ITEM_NORMAL, wx.EmptyString, wx.EmptyString, None ) 
+		
+		self.m_toolBar1.Realize() 
+		
+		
+		self.Centre( wx.BOTH )
+		
+		# Connect Events
+		self.ColumnsExportList.Bind( wx.EVT_LIST_ITEM_ACTIVATED, self.match )
+		self.ColumnsExportList.Bind( wx.EVT_SIZE, self.resize )
+		self.ColumnsImportList.Bind( wx.EVT_LIST_ITEM_ACTIVATED, self.match )
+		self.ColumnsImportList.Bind( wx.EVT_SIZE, self.resize )
+		self.ColumnsMatchList.Bind( wx.EVT_LIST_ITEM_ACTIVATED, self.unmatch )
+		self.ColumnsMatchList.Bind( wx.EVT_SIZE, self.resize )
+		self.Bind( wx.EVT_TOOL, self.load, id = self.m_tool1.GetId() )
+		self.Bind( wx.EVT_TOOL, self.save, id = self.m_tool2.GetId() )
+		self.Bind( wx.EVT_TOOL, self.match, id = self.m_tool3.GetId() )
+		self.Bind( wx.EVT_TOOL, self.unmatch, id = self.m_tool4.GetId() )
+	
+	def __del__( self ):
+		pass
+	
+	
+	# Virtual event handlers, overide them in your derived class
+	def match( self, event ):
+		event.Skip()
+	
+	def resize( self, event ):
+		event.Skip()
+	
+	
+	
+	def unmatch( self, event ):
+		event.Skip()
+	
+	
+	def load( self, event ):
+		event.Skip()
+	
+	def save( self, event ):
+		event.Skip()
+	
+	
+	
+
+###########################################################################
+## Class MyDialog2
+###########################################################################
+
+class MyDialog2 ( wx.Dialog ):
+	
+	def __init__( self, parent ):
+		wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = wx.EmptyString, pos = wx.DefaultPosition, size = wx.Size( 959,578 ), style = wx.DEFAULT_DIALOG_STYLE )
+		
+		self.SetSizeHints( wx.DefaultSize, wx.DefaultSize )
+		
 		bSizer9 = wx.BoxSizer( wx.HORIZONTAL )
 		
-		self.m_panel4 = wx.Panel( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
-		bSizer13 = wx.BoxSizer( wx.VERTICAL )
+		self.ColumnsExportList = wx.ListCtrl( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_REPORT )
+		bSizer9.Add( self.ColumnsExportList, 1, wx.ALL|wx.EXPAND, 5 )
 		
-		self.ColumnsExportList = wx.ListCtrl( self.m_panel4, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_REPORT )
-		bSizer13.Add( self.ColumnsExportList, 1, wx.ALL|wx.EXPAND, 5 )
+		self.ColumnsImportList = wx.ListCtrl( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_REPORT )
+		bSizer9.Add( self.ColumnsImportList, 1, wx.ALL|wx.EXPAND, 5 )
 		
-		
-		self.m_panel4.SetSizer( bSizer13 )
-		self.m_panel4.Layout()
-		bSizer13.Fit( self.m_panel4 )
-		bSizer9.Add( self.m_panel4, 1, wx.EXPAND |wx.ALL, 5 )
-		
-		self.m_panel41 = wx.Panel( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
-		bSizer131 = wx.BoxSizer( wx.VERTICAL )
-		
-		self.ColumnsImportList = wx.ListCtrl( self.m_panel41, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_REPORT )
-		bSizer131.Add( self.ColumnsImportList, 1, wx.ALL|wx.EXPAND, 5 )
-		
-		
-		self.m_panel41.SetSizer( bSizer131 )
-		self.m_panel41.Layout()
-		bSizer131.Fit( self.m_panel41 )
-		bSizer9.Add( self.m_panel41, 1, wx.ALL|wx.EXPAND, 5 )
-		
-		self.m_panel3 = wx.Panel( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
-		bSizer10 = wx.BoxSizer( wx.VERTICAL )
-		
-		self.m_button1 = wx.Button( self.m_panel3, wx.ID_ANY, u"Match", wx.DefaultPosition, wx.DefaultSize, 0 )
-		bSizer10.Add( self.m_button1, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 5 )
-		
-		self.m_button2 = wx.Button( self.m_panel3, wx.ID_ANY, u"< Unmatch", wx.DefaultPosition, wx.DefaultSize, 0 )
-		bSizer10.Add( self.m_button2, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 5 )
-		
-		self.ColumnsMatchList = wx.ListCtrl( self.m_panel3, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_REPORT )
-		bSizer10.Add( self.ColumnsMatchList, 1, wx.ALL|wx.EXPAND, 5 )
-		
-		
-		self.m_panel3.SetSizer( bSizer10 )
-		self.m_panel3.Layout()
-		bSizer10.Fit( self.m_panel3 )
-		bSizer9.Add( self.m_panel3, 1, wx.EXPAND |wx.ALL, 5 )
+		self.ColumnsMatchList = wx.ListCtrl( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_REPORT )
+		bSizer9.Add( self.ColumnsMatchList, 1, wx.ALL|wx.EXPAND, 5 )
 		
 		
 		self.SetSizer( bSizer9 )
@@ -307,8 +351,6 @@ class ColumnMatcher ( wx.Frame ):
 		self.ColumnsExportList.Bind( wx.EVT_SIZE, self.resize )
 		self.ColumnsImportList.Bind( wx.EVT_LIST_ITEM_ACTIVATED, self.match )
 		self.ColumnsImportList.Bind( wx.EVT_SIZE, self.resize )
-		self.m_button1.Bind( wx.EVT_BUTTON, self.match )
-		self.m_button2.Bind( wx.EVT_BUTTON, self.unmatch )
 		self.ColumnsMatchList.Bind( wx.EVT_LIST_ITEM_ACTIVATED, self.unmatch )
 		self.ColumnsMatchList.Bind( wx.EVT_SIZE, self.resize )
 	
@@ -325,9 +367,123 @@ class ColumnMatcher ( wx.Frame ):
 	
 	
 	
+	def unmatch( self, event ):
+		event.Skip()
+	
+	
+
+###########################################################################
+## Class ColumnMatcher
+###########################################################################
+
+class ColumnMatcher ( wx.Dialog ):
+	
+	def __init__( self, parent ):
+		wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = wx.EmptyString, pos = wx.DefaultPosition, size = wx.Size( 1027,615 ), style = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER )
+		
+		self.SetSizeHints( wx.DefaultSize, wx.DefaultSize )
+		
+		bSizer22 = wx.BoxSizer( wx.VERTICAL )
+		
+		self.m_panel12 = wx.Panel( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
+		bSizer23 = wx.BoxSizer( wx.HORIZONTAL )
+		
+		self.Load = wx.Button( self.m_panel12, wx.ID_ANY, u"Load", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.Load.Hide()
+		
+		bSizer23.Add( self.Load, 0, wx.ALL, 5 )
+		
+		self.Save = wx.Button( self.m_panel12, wx.ID_ANY, u"Save", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.Save.Hide()
+		
+		bSizer23.Add( self.Save, 0, wx.ALL, 5 )
+		
+		self.Match = wx.Button( self.m_panel12, wx.ID_ANY, u"Match", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.Match.Hide()
+		
+		bSizer23.Add( self.Match, 0, wx.ALL, 5 )
+		
+		self.Unmatch = wx.Button( self.m_panel12, wx.ID_ANY, u"Unmatch", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.Unmatch.Hide()
+		
+		bSizer23.Add( self.Unmatch, 0, wx.ALL, 5 )
+		
+		self.m_bpButton1 = wx.BitmapButton( self.m_panel12, wx.ID_ANY, wx.Bitmap( u"icons/Open-file-icon.png", wx.BITMAP_TYPE_ANY ), wx.DefaultPosition, wx.DefaultSize, wx.BU_AUTODRAW|wx.NO_BORDER )
+		bSizer23.Add( self.m_bpButton1, 0, wx.LEFT|wx.RIGHT, 5 )
+		
+		self.m_bpButton2 = wx.BitmapButton( self.m_panel12, wx.ID_ANY, wx.Bitmap( u"icons/Save-as-icon32.png", wx.BITMAP_TYPE_ANY ), wx.DefaultPosition, wx.DefaultSize, wx.BU_AUTODRAW|wx.NO_BORDER )
+		bSizer23.Add( self.m_bpButton2, 0, wx.LEFT|wx.RIGHT, 5 )
+		
+		self.m_bpButton3 = wx.BitmapButton( self.m_panel12, wx.ID_ANY, wx.Bitmap( u"icons/equal-mathematical-sign.png", wx.BITMAP_TYPE_ANY ), wx.DefaultPosition, wx.DefaultSize, wx.BU_AUTODRAW|wx.NO_BORDER )
+		bSizer23.Add( self.m_bpButton3, 0, wx.LEFT|wx.RIGHT, 5 )
+		
+		self.m_bpButton4 = wx.BitmapButton( self.m_panel12, wx.ID_ANY, wx.Bitmap( u"icons/is-not-equal-to-mathematical-symbol.png", wx.BITMAP_TYPE_ANY ), wx.DefaultPosition, wx.DefaultSize, wx.BU_AUTODRAW|wx.NO_BORDER )
+		bSizer23.Add( self.m_bpButton4, 0, wx.LEFT|wx.RIGHT, 5 )
+		
+		
+		self.m_panel12.SetSizer( bSizer23 )
+		self.m_panel12.Layout()
+		bSizer23.Fit( self.m_panel12 )
+		bSizer22.Add( self.m_panel12, 0, wx.EXPAND |wx.ALL, 5 )
+		
+		self.ListsPanel = wx.Panel( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
+		ListsSizer = wx.BoxSizer( wx.HORIZONTAL )
+		
+		self.m_listCtrl10 = wx.ListCtrl( self.ListsPanel, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_REPORT )
+		ListsSizer.Add( self.m_listCtrl10, 1, wx.ALL|wx.EXPAND, 5 )
+		
+		self.m_listCtrl11 = wx.ListCtrl( self.ListsPanel, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_REPORT )
+		ListsSizer.Add( self.m_listCtrl11, 1, wx.ALL|wx.EXPAND, 5 )
+		
+		self.m_listCtrl12 = wx.ListCtrl( self.ListsPanel, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_REPORT )
+		ListsSizer.Add( self.m_listCtrl12, 1, wx.ALL|wx.EXPAND, 5 )
+		
+		
+		self.ListsPanel.SetSizer( ListsSizer )
+		self.ListsPanel.Layout()
+		ListsSizer.Fit( self.ListsPanel )
+		bSizer22.Add( self.ListsPanel, 1, wx.EXPAND |wx.ALL, 5 )
+		
+		
+		self.SetSizer( bSizer22 )
+		self.Layout()
+		
+		self.Centre( wx.BOTH )
+		
+		# Connect Events
+		self.Load.Bind( wx.EVT_BUTTON, self.load )
+		self.Save.Bind( wx.EVT_BUTTON, self.save )
+		self.Match.Bind( wx.EVT_BUTTON, self.match )
+		self.Unmatch.Bind( wx.EVT_BUTTON, self.unmatch )
+		self.m_listCtrl10.Bind( wx.EVT_LIST_ITEM_ACTIVATED, self.match )
+		self.m_listCtrl10.Bind( wx.EVT_SIZE, self.resize )
+		self.m_listCtrl11.Bind( wx.EVT_LIST_ITEM_ACTIVATED, self.match )
+		self.m_listCtrl11.Bind( wx.EVT_SIZE, self.resize )
+		self.m_listCtrl12.Bind( wx.EVT_LIST_ITEM_ACTIVATED, self.unmatch )
+		self.m_listCtrl12.Bind( wx.EVT_SIZE, self.resize )
+	
+	def __del__( self ):
+		pass
+	
+	
+	# Virtual event handlers, overide them in your derived class
+	def load( self, event ):
+		event.Skip()
+	
+	def save( self, event ):
+		event.Skip()
+	
+	def match( self, event ):
+		event.Skip()
 	
 	def unmatch( self, event ):
 		event.Skip()
+	
+	
+	def resize( self, event ):
+		event.Skip()
+	
+	
 	
 	
 	
