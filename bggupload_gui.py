@@ -103,6 +103,9 @@ class mainframe ( wx.Frame ):
 		self.m_menuItem6 = wx.MenuItem( self.m_menu4, wx.ID_ANY, u"Remove Selected (green) Row", wx.EmptyString, wx.ITEM_NORMAL )
 		self.m_menu4.Append( self.m_menuItem6 )
 		
+		self.m_menuItem9 = wx.MenuItem( self.m_menu4, wx.ID_ANY, u"Enter Selected BGGID (+submit)", wx.EmptyString, wx.ITEM_NORMAL )
+		self.m_menu4.Append( self.m_menuItem9 )
+		
 		self.fuzzysearch = wx.MenuItem( self.m_menu4, wx.ID_ANY, u"Fuzzy Local Search", wx.EmptyString, wx.ITEM_CHECK )
 		self.m_menu4.Append( self.fuzzysearch )
 		self.fuzzysearch.Check( True )
@@ -129,6 +132,7 @@ class mainframe ( wx.Frame ):
 		self.Bind( wx.EVT_MENU, self.export_to_bgg, id = self.tobgg.GetId() )
 		self.Bind( wx.EVT_MENU, self.ShowOutputPanel, id = self.m_menuItem7.GetId() )
 		self.Bind( wx.EVT_MENU, self.RemoveRow, id = self.m_menuItem6.GetId() )
+		self.Bind( wx.EVT_MENU, self.EnterBggId, id = self.m_menuItem9.GetId() )
 		self.Bind( wx.EVT_MENU, self.FuzzySearchEnable, id = self.fuzzysearch.GetId() )
 		self.Bind( wx.EVT_MENU, self.About, id = self.m_menuItem3.GetId() )
 	
@@ -159,6 +163,9 @@ class mainframe ( wx.Frame ):
 		event.Skip()
 	
 	def RemoveRow( self, event ):
+		event.Skip()
+	
+	def EnterBggId( self, event ):
 		event.Skip()
 	
 	def FuzzySearchEnable( self, event ):
@@ -379,7 +386,7 @@ class MyDialog2 ( wx.Dialog ):
 class ColumnMatcher ( wx.Dialog ):
 	
 	def __init__( self, parent ):
-		wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = wx.EmptyString, pos = wx.DefaultPosition, size = wx.Size( 1027,615 ), style = wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER )
+		wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = wx.EmptyString, pos = wx.DefaultPosition, size = wx.Size( 1027,615 ), style = wx.DEFAULT_DIALOG_STYLE )
 		
 		self.SetSizeHints( wx.DefaultSize, wx.DefaultSize )
 		

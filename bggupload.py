@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # BGG Collection Program
 # This program allows you to enter board games into a CSV file for upload into your collection
 # using the bggcli program.
@@ -70,6 +71,7 @@ from xlrd import open_workbook
 # use a ListCtrl in report mode with a 
 # single column and with the header turned off.  It looks and acts almost like a ListBox in that case. 
 
+    
 
 modulefile = sys.modules[__name__].__file__
 modulefolder = os.path.dirname(modulefile)
@@ -77,6 +79,274 @@ print(modulefolder)
 
 app = wx.App(False)  # Create a new app, don't redirect stdout/stderr to a window.
 
+helptext = """BGG Interactive Upload Tool
+
+Update your boardgamegeek.com collection using this GUI interface. This program helps you interactively find the BGGID from a partial name or inexact match.
+
+This tool takes input and searches BGG for similar names. You can then double click the desired item to create a row in the output file.
+
+Each row of images in the GUI represents an individual search. Select the one item per row that corresponds to the desired choice. Use the mouse and single click to navigate and browse. Double click to put the desired item into the output file.
+Currently, this program creates a CSV file for use with BGGCLI program and does not upload directly.
+
+Input can be from several sources:
+    manual input search term,
+    CSV file,
+    Order confirmation email. Currently supports:
+        coolstuffinc
+        miniaturemarket
+        boardlandia
+        
+
+Importing from confirmation email will retain other information in the file such as aquisitiondate and price paid.
+
+Menu Items:
+    Remove Selected Row: Remove row without writing to output file.
+    Enter BGGID: Directly enter BGGID and write to output file.
+
+    The following menu items DO NOT WORK:
+        Load>Paste from Clipboard
+        Save>To File
+        Save>To BGG
+        View>Output
+        Edit>Fuzzy Local Search
+
+Default options: Save To File, Fuzzy Local Search Enabled, View Output.
+
+The developer is seeking problem reports via https://github.com/HiGregSmith/bggupload/issues
+ 
+Not Tested: If the row has an 'id', it is placed directly in the output file
+if the row does not have a 'id' and does have an 'objectname', the objectname is used as a term search for manual selection.
+"""
+
+# http://www.iconarchive.com/show/pretty-office-7-icons-by-custom-icon-design/Save-as-icon.html
+class gui(bggupload_gui.mainframe):
+    def __init__(self,parent):
+        bggupload_gui.mainframe.__init__(self,parent)
+        
+        #self.itemselected = [] # index is row
+        #self.rowbyitem = {}
+        #self.rowsgui = []
+        #self.databyitem = {}
+        self.databyrow = {}
+        self.current = None
+        #self.searchbylabel = {}
+    def GetRowData(self,row):
+        return self.databyrow[row]
+        
+    def GetData(self,item):
+        return self.databyitem[item]
+        
+    def RemoveRow(self,event):
+        if self.current:
+            self.DeleteRow(self.current.GetParent())
+            self.GetSizer().Layout()
+        else:
+            msg = "You must first select an item within the row to delete."
+            wx.MessageDialog(None,msg).ShowModal()
+
+    def AddRow(self,data):
+        print('Adding row:',data)
+        parent = self.mainwindow
+        row = wx.Panel( parent, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
+        self.databyrow[row] = data
+        bsizer = wx.BoxSizer( wx.HORIZONTAL )
+        row.SetSizer( bsizer )
+        row.Layout()
+        bsizer.Fit( row )
+        #parent.GetSizer().Add( row, proportion=1, flag=wx.EXPAND, border=5 )
+        parent.GetSizer().Add( row, proportion=0, flag=wx.EXPAND, border=5 )
+        #self.rowsgui.append((row,bsizer))
+        #self.itemselected.append(None)
+        return row
+    def DeleteRow(self,row):
+        #row = self.rowsgui[rownum][0]
+        #row = panel.GetParent()
+        #rowholder = row.GetParent()
+        #s = row.GetSizer()
+        row.Destroy()
+        #s.Layout()
+        # psizer = panel.GetSizer()
+        # psizer.Remove(rownum)
+        # panel.Parent().Remove
+        #rowholder.GetSizer().Layout()
+    # def GetRowFromItem(self,item):
+        # return self.rowbyitem.get(item,None)
+        
+    def AddRowItem(self,item,data):
+        pass
+        #print (item)
+        #self.rowsgui[-1][0].AddChild(item)
+        # self.rowsgui[-1][1].Add(item)
+        # self.rowbyitem[item] = len(self.rowsgui)-1
+        # self.databyitem[item] = data
+
+    def DeselectRow(self,item):
+        #row = item._row # self.rowbyitem[item]
+        previousitems = item.GetParent().GetChildren() # self.itemselected[row]
+        if previousitems:
+            for previousitem in previousitems:
+                if previousitem._status != 0:
+                    previousitem.SetStatus(0)
+                    #self.itemselected[row] = None
+                    previousitem.Refresh()
+
+    def SelectRowItem(self,item,deselect=True):
+        row = item._row # self.rowbyitem[item]
+        print ('Row = {}'.format(row))
+        if deselect:
+            self.DeselectRow(item)
+        #self.itemselected[row] = item
+        item.SetStatus(1)
+        item.Refresh()
+        print(self.databyitem[item])
+        
+
+	# Overide virtual event handlers.
+    def KillFocusImage( self, event ):
+        self.SetBackgroundColour('white')
+        print('white')
+        event.Skip()
+        	
+    def SetFocusImage( self, event ):
+        self.SetBackgroundColour('blue')
+        print('blue')
+        event.Skip()
+        
+    def Search( self, event ):
+        global SearchQueue    
+        print('search')
+        searchterm = self.searchbox.GetValue()
+        self.searchbox.SetSelection(-1,-1)
+        self.AddToQueue({'searchterm':searchterm})
+        event.Skip()
+        
+    def AddToQueue(self,data):
+        searchterm = data.get('searchterm',None) or data.get('objectname',None)
+        #print('Text label [{}] {}'.format(searchterm,data))
+        t=wx.StaticText(self.importlist,label=searchterm)
+        self.importlist.GetSizer().Add(t)
+        self.importlist.Layout()
+        # add to search queue and start search
+        SearchQueue.put(data)
+        SearchQueueStart()
+
+        
+    def About(self,event):
+        d=bggupload_gui.helpdialog(self)
+        finalhelptext = helptext+'\n\nCurrent Preferences: {}\nThese preferences are editable in the source code.'.format(str(preferences))
+        d.helptextbox.SetValue(finalhelptext)
+        d.ShowModal()
+
+    def SearchResult(self,result):
+        search,images,tree = result
+        child = self.importlist.Children[0]
+        if search != child.GetLabel():
+            print("Search and result out of sync. Wanted {} got {}.".format(child.GetLabel(),search))
+        p = child.GetParent()
+        s = p.GetSizer()
+        #s.Remove(child)
+        child.Destroy()
+        #self.importlist.RemoveChild(child)
+        p.Update()
+        s.Layout()
+        time.sleep(2)
+        print("Got Search Results.")
+    def ImportFile(self,event):
+        '''Import selected file using automatic format detection'''
+        # ask the user what new file to open
+        # with wx.FileDialog(self, "Open XYZ file", wildcard="XYZ files (*.xyz)|*.xyz",
+                           # style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
+        with wx.FileDialog(self, "Import boardgame file", wildcard="All files|*.*",
+                           style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST | wx.FD_MULTIPLE ) as fileDialog:
+
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return     # the user changed their mind
+            
+            # Proceed loading the file chosen by the user
+            pathnames = fileDialog.GetPaths()
+            for filename in pathnames:#['coolstuff1.txt','mm1.txt']:
+                try:
+                    with codecs.open(filename, encoding='utf-8') as f:
+                    #with open(filename, 'r') as f:
+                        print('FILE: {}'.format(filename))
+                        for importer in importers:
+                            print('Trying IMPORTER: {}  ...  '.format(importer),end='')
+                            impclass = globals()[importer]()
+                            canimport = impclass.canimport(f)
+                            # print(importer,canimport)
+                            f.seek(0)
+                            if canimport:
+                                print('Importing using {}.'.format(importer))
+                                rows = impclass.getrows(f)
+                                if not rows:
+                                    msg = "There are no rows in the input file."
+                                    wx.MessageDialog(None,msg).ShowModal()
+                                    break
+                                print('Importing {} rows.'.format(len(rows)))
+                                # DO STUFF WITH ROWS HERE
+                                for row in rows:
+                                    #print('RK',list(row.keys()))
+                                    mframe.AddToQueue(row)
+                                #print(rows)
+                                break
+                            
+                            print('NOPE!')
+                except IOError:
+                    wx.LogError("Cannot open file '%s'." % filename)
+                    
+    def EnterBggId(self,event):
+        print('Entering BGGID')
+        if self.current:
+            rowobject = self.current.GetParent()
+        else:
+            msg = "You must first select an item within the row to submit.\n" \
+                  "The exact item selected within the row doesn't matter."
+            wx.MessageDialog(None,msg).ShowModal()
+            return
+
+        bggid = entrydialog(label="Enter BGG ID",catch=False)
+        if bggid is None:
+            return        
+        try:
+            bggid = str(int(bggid.strip()))
+        except:
+            return
+            
+        # Here, bggid is a valid string representation of an integer
+        
+        # Get row data
+        # Add entered bggid
+        # process
+        datanew = {}
+        datanew.update(self.GetRowData(rowobject))
+        #datanew.update(fullbgg4[p._data]) # get selected data
+        datanew.update({
+            'objectid':bggid,
+            #'objecttype':datanew[0].category,
+            'own':1,
+        })
+        
+        print('data',datanew)
+        outputmgr.saverows([datanew]) # hash of values corresponding to CSV columns
+        self.DeleteRow(rowobject)
+        self.GetSizer().Layout()
+ 
+mframe = gui(None)
+
+def entrydialog(parent=mframe,label="Enter Value",value='',catch=True):
+    try:
+        dlg = wx.TextEntryDialog(parent, label, value=value)
+        result = dlg.ShowModal()
+    except Exception as e:
+        if not catch:
+            raise
+        return None
+    
+    if result != wx.ID_OK:
+        #self._message.SetLabel("Cancelled (%s)"%str(result))
+        return None
+    return dlg.GetValue()
+    
 class wxoutput():    
     def __init__(self,pobject,method,*args,**kwargs):
         self._object = pobject
@@ -85,7 +355,8 @@ class wxoutput():
     def output(self,*args,**kwargs):
         #end = kwargs.get('end','\n')
         #ostring = ' '.join(args)+end
-        ostring = ' '.join(map(lambda s: str(s),args[0]))+kwargs.get('end','\n')
+
+        ostring = ' '.join(map(lambda s: str(s),args))+kwargs.get('end','\n')#+str(kwargs)
         #aplugin.g.outputbox.AppendText(ostring)
         getattr(self._object,self._method)(ostring)
         return
@@ -107,7 +378,7 @@ def print(*args, **kwargs):
     # is probably a bad idea.
     # Instead consider testing if custom argument keywords
     # are present in kwargs
-    return woutput.output(args,kwargs)
+    return woutput.output(*args,**kwargs)
     #__builtin__.print('My overridden print() function!')
     return __builtin__.print(*args, **kwargs)
 
@@ -129,6 +400,7 @@ import queue
 #import fuzzywuzzy as fuzz
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
+from fuzzywuzzy import utils
 #from collections import *
 import collections
 from os import walk
@@ -168,7 +440,6 @@ StatusQueue.put('Enter Search Term, Load a file, or click Help for more assistan
 
 preferences = {'fuzzymincount':2,'fuzzymaxcount':20,'fuzzyminscore':80}
 BggSummaryInfo = collections.namedtuple('BggSummaryInfo','category itemid itemtype itemname itemnametype itemyear')
-
 #print('-{0:>6}-'.format(345))
 things = [ # lowest priority first
     'rpgissue',
@@ -585,7 +856,7 @@ def SearchQueueStart():
 from dateutil.parser import parse
 class import_coolstuffemail():
     """Be sure to capture the "Order #CSI-" line so the importer can recognize
-       CoolStuffInc email."""
+       CoolStuffInc email. Search 'coolstuffinc purchase'"""
        
     def __init__(self):
         self.date = None
@@ -603,7 +874,10 @@ class import_coolstuffemail():
             #sleep(1)
             if line.startswith('Order #CSI-'):
                 self.order = line.split()[-1]
-            if line.startswith('Date'):
+            if line.startswith('Date:'):
+                #self.date = dateutil.parser.parse(line.split()[-1])
+                self.date = parse(line[5:])
+            elif line.startswith('Date'):
                 #self.date = dateutil.parser.parse(line.split()[-1])
                 self.date = parse(line.split()[-1])
             if re.match(r'^[0-9]+\s+-\s+.*(.+).*$',line): # line is a row
@@ -617,22 +891,104 @@ class import_coolstuffemail():
                 objectname = line[firstdash:lparen-1]
                 print('[{}]'.format(line[rparen+1:]))
                 temp,pricepaid,temp = line[rparen+1:].split()
+                pricepaid = re.sub('^[^0-9]*','', pricepaid)
+                pricepaid = re.sub('[^0-9]*$','', pricepaid)
+                
                 conditiontext, category, publisher = line[lparen:rparen].split(', ')
                 row = {'objectname':objectname[2:],'own':1,'conditiontext':conditiontext[1:],
-                       'numowned':numowned, 'pricepaid':pricepaid,
-                       'comment':self.order+', '+category+', '+publisher
+                       'numowned':numowned, 'quantity':numowned, 'pricepaid':pricepaid,
+                       'comment':category+', '+publisher,
+                       'acquiredfrom':'CoolStuffInc '+self.order
                        }
                 if self.date is not None:
-                    row['acquisitiondate'] = self.date
+                    row['acquisitiondate'] = self.date.strftime('%Y-%m-%d') # isoformat()
                 print(row)
                 rows.append(row)
         # 2 - Harbour (New, Board Games, Tasty Minstrel Games) at $7.99 each
-        headings = ['objectname','own','conditiontext','numowned',
-                    'objecttype','pricepaid','acquisitiondate','comment'] # comment has publisher name
+        # headings = ['objectname','own','conditiontext','numowned',
+                    # 'objecttype','pricepaid','acquisitiondate','comment'] # comment has publisher name
         return rows
  
 #######################################################
 #############   CoolStuff End    ######################
+#######################################################
+#######################################################
+#############   Import Boardlandia    ###################
+#######################################################
+from dateutil.parser import parse
+class import_boardlandiaemail():
+    """Be sure to capture the "Boardlandia (http...)" line so the importer can recognize
+       Boardlandia email. Search 'boardlandia order confirmed'"""
+       
+    def __init__(self):
+        self.date = None
+        
+    def canimport(self,stream):
+        for line in stream:
+            if line.startswith('Boardlandia ( https://boardlandia.com )'):
+                return True
+        return False
+                
+    def getrows(self,stream):
+        stage = 0
+        rows = []
+        for line in stream:
+            #print(stage)
+            if stage == 0:
+                if line.startswith('Boardlandia ( https://boardlandia.com )'):
+                    stage = 1
+                elif line.startswith('Date:'):
+                    #self.date = dateutil.parser.parse(line.split()[-1])
+                    self.date = parse(line[5:])
+                else:
+                    continue
+            elif stage == 1:
+                if line.startswith('Order summary'):
+                    stage = 2
+                    for _ in range(2):
+                        next(stream)
+                    continue
+                elif line.startswith('Order #'):
+                    self.order = line.strip()
+                    print('Order: ',line)
+                else:
+                    #print(line)
+                    continue
+            elif stage == 2:
+                # every boardgame is 4 lines: name - quantity, blank, price, blank
+                namequant = line.strip()
+                line = next(stream).strip()
+                while line != '':
+                    print('line not empty')
+                    namequant = namequant + line
+                    line = next(stream).strip()
+                pricepaid = next(stream).strip()
+                next(stream)
+                if namequant.startswith('Subtotal') or namequant.startswith('Discount'):
+                    break
+                print('[',namequant,']')
+                times = namequant.find('×')#(u'\00d7')#(u'\0215')#(u'×')
+                numowned = namequant[times+2:].strip()
+                objectname = namequant[:times-1]
+                print('importing row:',pricepaid,namequant)
+                pricepaid = re.sub('^[^0-9]*','', pricepaid)
+                pricepaid = re.sub('[^0-9]*$','', pricepaid)
+                
+                row = {'objectname':objectname,'own':1,
+                       'numowned':numowned, 'quantity':numowned, 'pricepaid':pricepaid,
+                       'acquiredfrom':'Boardlandia '+self.order
+                       }
+                if self.date is not None:
+                    row['acquisitiondate'] = self.date.strftime('%Y-%m-%d') # isoformat()
+                print(row)
+                rows.append(row)
+        # 2 - Harbour (New, Board Games, Tasty Minstrel Games) at $7.99 each
+        # headings = ['objectname','own','conditiontext','numowned',
+                    # 'objecttype','pricepaid','acquisitiondate','comment'] # comment has publisher name
+        return rows
+ 
+#######################################################
+#############   Boardlandia End    ######################
 #######################################################
 #https://stackoverflow.com/questions/11314339/make-column-width-take-up-available-space-in-wxpython-listctrl
 class ColumnsMatch(bggupload_gui.ColumnMatcher):
@@ -798,8 +1154,8 @@ class import_csv():
                 pass
             return True
         except:
-            print('Error in csv')
-            raise
+            print('Error while trying to import as csv')
+            #raise
             return False
     def getrows(self,stream,title='Column Matcher'):
         rows = []
@@ -846,22 +1202,159 @@ class import_csv():
 #######################################################
 ##########   Import Miniature Market    ###############
 #######################################################
+import os
+import sys
+import email
+import errno
+import mimetypes
+from lxml import etree
+from io import StringIO
+from io import BytesIO
 class import_miniaturemarket():
     """Be sure to capture the "Thank you for your order from Miniature Market"
        line so the importer can recognize Miniature Market email.
        
-       Email subject: Miniature Market: New Order
+       Search subject: 'Miniature Market: New Order'
        """
     def __init__(self):
         self.date = None
 
     def canimport(self,stream):
         for line in stream:
-            if line.startswith('Thank you for your order from Miniature Market'):
+            #if line.startswith('Thank you for your order from Miniature Market'):
+            if line.find('Miniature Market') != -1:
                 return True
         return False
-                
+
+    def all_texts(self,root):
+        if root.text is not None:
+            yield root.text
+        for child in root:
+            yield from self.all_texts(child)
+            #yield child.text #self.all_texts(child)
+            if child.tail is not None:
+                yield child.tail
     def getrows(self,stream):
+        """Reads the raw saved email file"""
+        stage = 0
+        rows = []
+        
+        # read the multipart MIME extension (from:)
+        # http://omz-software.com/pythonista/docs/library/email-examples.html
+        # """Unpack a MIME message into a directory of files."""
+        msg = email.message_from_file(stream)
+        self.date = parse(msg.get('Date'))
+        print('Date: ',self.date)
+        print('Date: ',msg.get('Date'))
+        counter = 1
+        once = 0
+        for part in msg.walk():
+            if part.get_content_maintype() == 'multipart':
+                continue
+            if once == 0:
+                once = 1
+                #print(dir(part))
+            for a in ('defects', 'get_boundary', 'get_charset', 'get_charsets', 'get_content_charset', 'get_content_disposition', 'get_content_maintype', 'get_content_subtype', 'get_content_type', 'get_default_type','get_filename'):
+                attr = getattr(part,a)
+                if callable(attr):
+                    attr = attr()
+                if a.startswith('get_'):
+                    a = a[4:]
+                #print('{}: {}; '.format(a,attr),end='')
+            print()
+            if part.get_content_type() == 'text/html':
+            
+                # read this part
+#                htmlstring = lxml.html.document_fromstring(part.get_payload(decode=True))
+                htmlstring = part.get_payload(decode=True)
+                
+                parser = etree.HTMLParser()
+                tree   = etree.parse(BytesIO(htmlstring), parser)
+
+                #result = etree.tostring(tree.getroot(),
+                #                        pretty_print=True, method="html").decode()
+                #print(result)
+                print('---------------- ELEMENTS ----------------')
+                #for table in tree.iter(tag='table'):
+                treeiter = tree.iter('thead','tbody','h3')
+                for tpart in treeiter:
+                    #print(tpart.tag,end='')
+                    rowlist = list(filter(lambda x: x,map(lambda x: x.strip(),self.all_texts(tpart))))
+                    #print(rowlist)
+                    if tpart.tag.lower() == 'h3':
+                        print('H3: ',rowlist)
+                    if tpart.tag.lower() == 'h3' and rowlist[0].startswith('Your Order #'):
+                        self.order = ' '.join(rowlist)
+                        paren = self.order.find('(')
+                        if paren != -1:
+                            self.order = self.order[5:paren].strip()
+                        print('ORDER: ',self.order)
+                    if tpart.tag != 'thead' or 'Item' not in rowlist:
+                        continue
+                    headerlist = rowlist
+                    print("Found start row!")
+                    for tpart in treeiter:
+                        #print('TBODY')
+                        rowlist = list(filter(lambda x: x,map(lambda x: x.strip(),self.all_texts(tpart))))
+                        if 'Subtotal' in rowlist:
+                            break
+                        row = dict(zip(headerlist, rowlist))
+                        conversions = {'Item':'objectname','Sku':'privatecomment','Qty':('numowned','quantity'),'Subtotal':'pricepaid'}
+                        # convert headings in email to row values
+                        pricepaid = row['Subtotal']
+                        pricepaid = re.sub('^[^0-9]*','', pricepaid)
+                        pricepaid = re.sub('[^0-9]*$','', pricepaid)
+                        pricepaid = float(pricepaid)/float(row['Qty'])
+                        row['Subtotal'] = str(pricepaid)
+                        row['Sku'] = 'MM SKU '+ row['Sku']
+                        if row['Item'].endswith(')'):
+                            paren = row['Item'].rfind('(')
+                            if paren != -1:
+                                item = row['Item'][:paren-1]
+                                parenexp = row['Item'][paren:]
+                                row['Item'] = item
+                                row['Sku'] = row['Sku']+' '+parenexp
+                        newrow = {}
+                        for k,v in row.items():
+                            newk = conversions.get(k,k)
+                            if isinstance(newk,str):
+                                newrow[newk] = v
+                            else: #list of strings
+                                for newkk in newk:
+                                    newrow[newkk] = v
+                        #print('ROW',newrow)
+                        newrow['acquiredfrom']='MM '+self.order
+                        paren = newrow['objectname'].find('(')
+                        if paren != -1:
+                            newrow['privatecomment'] += newrow['objectname'][paren:]
+                            newrow['objectname'] = newrow['objectname'][:paren].strip()
+                        
+                        if self.date is not None:
+                            newrow['acquisitiondate'] = self.date.strftime('%Y-%m-%d')
+                        rows.append(newrow)
+        return rows
+                        # for tr in tpart.getiterator(tag='tr'):
+                            # print(tr.tag)
+                            # for td in tr.getiterator(tag='td'):
+                                # print(list(self.all_texts(tr)))
+                                # print(td.tag)
+                                
+        # for line in stream:
+            # print(stage,line)
+            # if stage == 0:
+                # if u'Content-Type: text/html' in line:#; charset=utf-8'):
+                    # next(stream)
+                    # stage == 1
+                # #continue
+            # if stage == 1:
+                # print('stage',stage)
+                # html = stream.readall()
+                # print(html)
+                # #tree = lxml.html.document_fromstring(response.content)
+                
+            
+
+    def getrows_cutandpaste(self,stream):
         rows = []
         #Your Order #101050456 (placed on December 1, 2017 2:46:31 AM CST)
         stage = 2
@@ -869,6 +1362,9 @@ class import_miniaturemarket():
             #line = stream.readline()
             #print('importing row:',line)
             #sleep(1)
+            if line.startswith('Date:'):
+                #self.date = dateutil.parser.parse(line.split()[-1])
+                self.date = parse(line[5:])
             if stage == 0:
                 if line.startswith('Thank you again,'):
                     stage = 2
@@ -899,11 +1395,12 @@ class import_miniaturemarket():
                         'own':1,
                         #'conditiontext':conditiontext,
                        'numowned':numowned,
+                       'quantity':numowned,
                        'pricepaid':pricepaid,
                        'comment':comment
                        }
                 if self.date is not None:
-                    row['acquisitiondate'] = self.date
+                    row['acquisitiondate'] = self.date.strftime('%Y-%m-%d')
                 print(row)
                 rows.append(row)
                 
@@ -986,200 +1483,7 @@ for i in importers:
             # print(rows)
 # sys.exit()
 
-helptext = """BGG Interactive Upload Tool
-
-Update your boardgamegeek.com collection using this GUI interface.
-
-Manually enter search terms one at a time. Double click an image to put the desired item into the output file. The row of images representing a single search will then disappear.
-
-Currently, this creates a CSV file for use with BGGCLI program. This program helps you interactively find the BGGID from a partial name, including manual term search and order confirmation emails from coolstuffinc.com and miniaturemarket.com.
-
-This is experimental software in an Alpha release. Expect problems and difficulties at this point. The developer is seeking problem reports via https://github.com/HiGregSmith/bggupload/issues
- 
-Import board games from order confirmation email, csv file, or search input.
-
-Each input row eventually makes its way into the output file.
-If the row has a 'id', it is placed directly in the output file, if the row does not have a 'id' and does have an 'objectname', the objectname is used as a term search for manual selection.
-
-Each row of images in the GUI represents an individual search. Select the one item per row that corresponds to the desired choice. Use the mouse and single click to navigate and browse. Double click to put the desired item into the output file.
-"""
-# http://www.iconarchive.com/show/pretty-office-7-icons-by-custom-icon-design/Save-as-icon.html
-class gui(bggupload_gui.mainframe):
-    def __init__(self,parent):
-        bggupload_gui.mainframe.__init__(self,parent)
-        
-        #self.itemselected = [] # index is row
-        #self.rowbyitem = {}
-        #self.rowsgui = []
-        #self.databyitem = {}
-        self.databyrow = {}
-        self.current = None
-        #self.searchbylabel = {}
-    def GetRowData(self,row):
-        return self.databyrow[row]
-        
-    def GetData(self,item):
-        return self.databyitem[item]
-        
-    def RemoveRow(self,event):
-        if self.current:
-            self.DeleteRow(self.current.GetParent())
-            self.GetSizer().Layout()
-        else:
-            msg = "You must first select an item within the row to delete."
-            wx.MessageDialog(None,msg).ShowModal()
-
-    def AddRow(self,data):
-        print('Adding row:',data)
-        parent = self.mainwindow
-        row = wx.Panel( parent, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
-        self.databyrow[row] = data
-        bsizer = wx.BoxSizer( wx.HORIZONTAL )
-        row.SetSizer( bsizer )
-        row.Layout()
-        bsizer.Fit( row )
-        #parent.GetSizer().Add( row, proportion=1, flag=wx.EXPAND, border=5 )
-        parent.GetSizer().Add( row, proportion=0, flag=wx.EXPAND, border=5 )
-        #self.rowsgui.append((row,bsizer))
-        #self.itemselected.append(None)
-        return row
-    def DeleteRow(self,row):
-        #row = self.rowsgui[rownum][0]
-        #row = panel.GetParent()
-        #rowholder = row.GetParent()
-        #s = row.GetSizer()
-        row.Destroy()
-        #s.Layout()
-        # psizer = panel.GetSizer()
-        # psizer.Remove(rownum)
-        # panel.Parent().Remove
-        #rowholder.GetSizer().Layout()
-    # def GetRowFromItem(self,item):
-        # return self.rowbyitem.get(item,None)
-        
-    def AddRowItem(self,item,data):
-        pass
-        #print (item)
-        #self.rowsgui[-1][0].AddChild(item)
-        # self.rowsgui[-1][1].Add(item)
-        # self.rowbyitem[item] = len(self.rowsgui)-1
-        # self.databyitem[item] = data
-
-    def DeselectRow(self,item):
-        #row = item._row # self.rowbyitem[item]
-        previousitems = item.GetParent().GetChildren() # self.itemselected[row]
-        if previousitems:
-            for previousitem in previousitems:
-                if previousitem._status != 0:
-                    previousitem.SetStatus(0)
-                    #self.itemselected[row] = None
-                    previousitem.Refresh()
-
-    def SelectRowItem(self,item,deselect=True):
-        row = item._row # self.rowbyitem[item]
-        print ('Row = {}'.format(row))
-        if deselect:
-            self.DeselectRow(item)
-        #self.itemselected[row] = item
-        item.SetStatus(1)
-        item.Refresh()
-        print(self.databyitem[item])
-        
-
-	# Overide virtual event handlers.
-    def KillFocusImage( self, event ):
-        self.SetBackgroundColour('white')
-        print('white')
-        event.Skip()
-        	
-    def SetFocusImage( self, event ):
-        self.SetBackgroundColour('blue')
-        print('blue')
-        event.Skip()
-        
-    def Search( self, event ):
-        global SearchQueue    
-        print('search')
-        searchterm = self.searchbox.GetValue()
-        self.searchbox.SetSelection(-1,-1)
-        self.AddToQueue({'searchterm':searchterm})
-        event.Skip()
-        
-    def AddToQueue(self,data):
-        searchterm = data.get('searchterm',None) or data.get('objectname',None)
-        print('Text label [{}] {}'.format(searchterm,data))
-        t=wx.StaticText(self.importlist,label=searchterm)
-        self.importlist.GetSizer().Add(t)
-        self.importlist.Layout()
-        # add to search queue and start search
-        SearchQueue.put(data)
-        SearchQueueStart()
-
-        
-    def About(self,event):
-        d=bggupload_gui.helpdialog(self)
-        finalhelptext = helptext+'\n\nCurrent Preferences: {}\nThese preferences are editable in the source code.'.format(str(preferences))
-        d.helptextbox.SetValue(finalhelptext)
-        d.ShowModal()
-
-    def SearchResult(self,result):
-        search,images,tree = result
-        child = self.importlist.Children[0]
-        if search != child.GetLabel():
-            print("Search and result out of sync. Wanted {} got {}.".format(child.GetLabel(),search))
-        p = child.GetParent()
-        s = p.GetSizer()
-        #s.Remove(child)
-        child.Destroy()
-        #self.importlist.RemoveChild(child)
-        p.Update()
-        s.Layout()
-        time.sleep(2)
-        print("Got Search Results.")
-    def ImportFile(self,event):
-        '''Import selected file using automatic format detection'''
-        # ask the user what new file to open
-        # with wx.FileDialog(self, "Open XYZ file", wildcard="XYZ files (*.xyz)|*.xyz",
-                           # style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
-        with wx.FileDialog(self, "Import boardgame file", wildcard="All files|*.*",
-                           style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
-
-            if fileDialog.ShowModal() == wx.ID_CANCEL:
-                return     # the user changed their mind
-
-            # Proceed loading the file chosen by the user
-            pathname = fileDialog.GetPath()
-            for filename in [pathname]:#['coolstuff1.txt','mm1.txt']:
-                try:
-                    with open(filename, 'r') as f:
-                        print('FILE: {}'.format(filename))
-                        for importer in importers:
-#                            print('Trying IMPORTER: {}  ...  '.format(importer),end='')
-                            impclass = globals()[importer]()
-                            canimport = impclass.canimport(f)
-                            # print(importer,canimport)
-                            f.seek(0)
-                            if canimport:
-                                print('Importing using {}.'.format(importer))
-                                rows = impclass.getrows(f)
-                                if not rows:
-                                    msg = "There are no rows in the input file."
-                                    wx.MessageDialog(None,msg).ShowModal()
-                                    break
-                                print('Importing {} rows.'.format(len(rows)))
-                                # DO STUFF WITH ROWS HERE
-                                for row in rows:
-                                    print('RK',list(row.keys()))
-                                    mframe.AddToQueue(row)
-                                #print(rows)
-                                break
-                            
-                            print('NOPE!')
-                except IOError:
-                    wx.LogError("Cannot open file '%s'." % filename)        
-
-    
-
+       
 # There are several search results distinguished by background color:
 #    dark green - bgg search, exact
 #    dark green - local db, exact
@@ -1306,8 +1610,9 @@ class ImgPanel(wx.Panel,wx.ClientDataContainer):
         self.Refresh()
         itype,id = item2idt[self]
         #names = '{} {}'.format(str(id),
-        pri = [line.itemname for line in filter(lambda x: x.itemnametype=='primary', fullbgg4[(itype,id)])]
-        alt = [line.itemname for line in filter(lambda x: x.itemnametype!='primary', fullbgg4[(itype,id)])]
+        all = fullbgg4[(itype,id)]
+        pri = [line.itemname for line in filter(lambda x: x.itemnametype=='primary', all)]
+        alt = [line.itemname for line in filter(lambda x: x.itemnametype!='primary', all)]
         print('Highlighted',itype,id, ', '.join(pri))
         if alt:
             label='{} alt: {}'.format(' | '.join(pri),' | '.join(alt))
@@ -1369,27 +1674,31 @@ class ImgPanel(wx.Panel,wx.ClientDataContainer):
         
         p = object.GetParent() # Get ImgPanel
         rowobject = p.GetParent()
-        dataorig = mframe.GetRowData(rowobject)
-        datanew = fullbgg4[p._data]
         
-        print('data',datanew)
-        datanew = {
-            'objectid':datanew[0].itemid,
+        # Combine original spreadsheet data with database data, ownership, and id
+        
+        datanew = {}
+        datanew.update(mframe.GetRowData(rowobject))
+        print('SELECTED DATA',fullbgg4[p._data])
+        datanew.update({'objectid':fullbgg4[p._data][0].itemid}) # get selected data
+        #dataorig = mframe.GetRowData(rowobject)
+        datanew.update({
+            #'objectid':datanew.itemid,
             #'yearpublished':datanew[0].itemyear,
             #'':datanew[0].itemtype,
             #'objecttype':datanew[0].category,
             'own':1,
-        }
-        dataorig.update(datanew)
+        })
+        
+        print('DATANEW',datanew)
+        #dataorig.update(datanew)
         #p.guiinstance.SelectRowItem(self)
         #mframe.SelectRowItem(p)
         #datanew = mframe.GetData(p)
-        
-        row = p.GetParent()
-        rowdata = mframe.GetRowData(row)
-        print('ROWDATA',rowdata)
-        outputmgr.saverows([dataorig]) # hash of values corresponding to CSV columns
-        mframe.DeleteRow(row)
+                #rowdata = mframe.GetRowData(rowobject)
+        #print('ROWDATA',rowdata)
+        outputmgr.saverows([datanew]) # hash of values corresponding to CSV columns
+        mframe.DeleteRow(rowobject)
         mframe.GetSizer().Layout()
     def GetStatus(self):
         return self._status
@@ -1685,8 +1994,64 @@ def matchsetup():
 #https://raw.githubusercontent.com/beefsack/bgg-ranking-historicals/master/2017-12-31.csv
 
 #print(name2id)
-catidbyname = collections.defaultdict(list)
+catidbyname = None # collections.defaultdict(list)
+catid_by_preprocessed_name = None # collections.defaultdict(list)
+choices = None
+
 def matchname(name):
+    global catidbyname, catid_by_preprocessed_name, choices
+    # fuzz.token_set_ratio(name)
+    #choices = name2id.keys()
+    #choices = bggr.idbyname.keys()
+    #itypes = set()
+    
+    if not choices:
+        catidbyname = collections.defaultdict(list)
+        catid_by_preprocessed_name = collections.defaultdict(list)
+        for catid, lines in fullbgg4.items():
+            for line in lines:
+                #(category, itemid, itemtype, itemname, itemnametype, itemyear) = line
+                if line.itemtype in set(['boardgame','thing']):
+                    catidbyname[line[3]].append((line.itemtype,line.itemid))
+                    catid_by_preprocessed_name[utils.full_process(line[3])].append((line.itemtype,line.itemid))
+                    #itypes.add(line.itemtype)
+        #print('match types',itypes)
+        choices = catid_by_preprocessed_name.keys()
+
+    results = process.extract(utils.full_process(name),choices,limit=preferences['fuzzymaxcount'],processor=None)
+    resultsabovemin = list(filter(lambda x: x[1] >= preferences['fuzzyminscore'],results))
+    print('done.')
+    if len(resultsabovemin) < preferences['fuzzymincount']:
+        results = results[:preferences['fuzzymincount']]
+    else:
+        results = resultsabovemin
+    print('{} MATCHES'.format(name))
+    for name,score in results:
+        idlist = catid_by_preprocessed_name[name]
+        print('\t{} {} ({})'.format(score,name,idlist))        
+    return results
+
+    # print('RESULTS: ',results)
+    # #print(list(filter (lambda x : x.startswith('Timelin'),choices)))
+    # #print(choices)
+    # #results = process.extract(name,choices,scorer=fuzz.ratio,limit=5)
+    # #results = process.extractOne(name,choices,score_cutoff=90)#,limit=5)
+    # # fuzzycount':2,'fuzzyminscore
+    # print('Searching local database...')#,end='')
+    
+    # results = process.extract(name,choices,limit=preferences['fuzzymaxcount'])
+    # resultsabovemin = list(filter(lambda x: x[1] >= preferences['fuzzyminscore'],results))
+    # print('done.')
+    # if len(resultsabovemin) < preferences['fuzzymincount']:
+        # results = results[:preferences['fuzzymincount']]
+    # else:
+        # results = resultsabovemin
+    # print('{} MATCHES'.format(name))
+    # for name,score in results:
+        # print('\t{} {} {}'.format(score,str(catidbyname[name]),name))        
+    # return []
+    # bggr = ReadBGGResults(); bggr.getall(); len(bggr.idbyname); len(bggr.fullbgg['boardgame'])
+def matchname_old(name):
     # fuzz.token_set_ratio(name)
     #choices = name2id.keys()
     #choices = bggr.idbyname.keys()
@@ -1697,7 +2062,7 @@ def matchname(name):
             if line.itemtype in set(['boardgame','thing']):
                 catidbyname[line[3]].append((line.itemtype,line.itemid))
                 itypes.add(line.itemtype)
-    print('match types',itypes)
+    #print('match types',itypes)
     choices = catidbyname.keys()
     #print(list(filter (lambda x : x.startswith('Timelin'),choices)))
     #print(choices)
@@ -1705,6 +2070,7 @@ def matchname(name):
     #results = process.extractOne(name,choices,score_cutoff=90)#,limit=5)
     # fuzzycount':2,'fuzzyminscore
     print('Searching local database...')#,end='')
+    
     results = process.extract(name,choices,limit=preferences['fuzzymaxcount'])
     resultsabovemin = list(filter(lambda x: x[1] >= preferences['fuzzyminscore'],results))
     print('done.')
@@ -1730,6 +2096,14 @@ def searchname(name):
 
 MatchItem = collections.namedtuple("MatchItem","id itype thumbstream score")
 item2idt = {}
+def getitemyear(itype,id):
+    try:
+        return fullbgg4[(itype,id)][0].itemyear or 0
+    except:
+        return 0
+    # except KeyError:
+        # print("Can't find {} in local database.".format((x.itype,x.id)))
+                    
 def process_row(rowdata):
     id = rowdata.get('objectid',None)
     if id is None or id == '':
@@ -1756,7 +2130,7 @@ def process_row(rowdata):
         
         namescorelist = matchname(name) # returns list of (name,score)
         for name,score in namescorelist:
-            for category,id in catidbyname[name]:
+            for category,id in catid_by_preprocessed_name[name]:
                 matchlist.append([id,category,None,score])
                 
             #id,t,getseekablestream(thumb),100
@@ -1792,13 +2166,20 @@ def process_row(rowdata):
                     print("Doesn't match",m)
                     r=(None,'https://cf.geekdo-images.com/images/pic1657689_t.jpg',None)
                 resultmatchlist.append(MatchItem(m[0],m[1],getseekablestream(r[2]),m[3]))
+            # arbitrarily take the first item's year
+                #print('YEARS: ',[item.itemyear for item in fullbgg4[(key[1],key[0])]])
+            #BggSummaryInfo = collections.namedtuple('BggSummaryInfo','category itemid itemtype itemname itemnametype itemyear')
+            resultmatchlist.sort(key=lambda x:(-x.score,-int(getitemyear(x.itype,x.id))))
                 
+            #all = fullbgg4[(matchitem.itype,matchitem.id)]
+
             # for id,t,thumb in idthumburl:
                 # matchlist.append(MatchItem(id,t,getseekablestream(thumb),100))
             #print('post',resultmatchlist)
         wx.CallAfter(append_gui_row,resultmatchlist,rowdata)
 
 def append_gui_row(matchlist,data,row=None):
+    """Don't set row, cannot handle row != None"""
     print('append_gui_row',len(matchlist))
     if row is None:
         r = mframe.AddRow(data)
@@ -1810,7 +2191,16 @@ def append_gui_row(matchlist,data,row=None):
     for matchitem in matchlist:
     #for id,itype,thumbstream in idthumbstream:
         #bsi = fullbgg4[(itype,id)]
-        bsi = list(filter(lambda x: x.itemnametype=='primary',fullbgg4[(matchitem.itype,matchitem.id)]))[0]
+        try:
+            all = fullbgg4[(matchitem.itype,matchitem.id)]
+            pri = list(filter(lambda x: x.itemnametype=='primary', all))
+            alt = list(filter(lambda x: x.itemnametype!='primary', all))
+
+            bsi = pri+alt
+            bsi = bsi[0]
+        except:
+            print('Warning error with ',matchitem)
+            continue
         #url = fullurl('thing',{'id':bsi.itemid,'type':bsi.itemtype})
         #print('matchid',matchitem.id)
         paren = ''
@@ -1871,7 +2261,6 @@ def process_csv(filename):
 # for row in p:
     # print ' '.join(row).encode("utf-8")
 
-mframe = gui(None)
 mframe.SetTitle(outputmgr.backupfile)
 #mframe.SetTitle(outputmgr.fullpath)
 mframe.Show(True)
