@@ -1997,7 +1997,10 @@ def matchsetup():
 catidbyname = None # collections.defaultdict(list)
 catid_by_preprocessed_name = None # collections.defaultdict(list)
 choices = None
-
+from unidecode import unidecode
+def uniprocess(s):
+    return utils.full_process(unidecode(s))
+    
 def matchname(name):
     global catidbyname, catid_by_preprocessed_name, choices
     # fuzz.token_set_ratio(name)
@@ -2013,12 +2016,12 @@ def matchname(name):
                 #(category, itemid, itemtype, itemname, itemnametype, itemyear) = line
                 if line.itemtype in set(['boardgame','thing']):
                     catidbyname[line[3]].append((line.itemtype,line.itemid))
-                    catid_by_preprocessed_name[utils.full_process(line[3])].append((line.itemtype,line.itemid))
+                    catid_by_preprocessed_name[uniprocess(line[3])].append((line.itemtype,line.itemid))
                     #itypes.add(line.itemtype)
         #print('match types',itypes)
         choices = catid_by_preprocessed_name.keys()
 
-    results = process.extract(utils.full_process(name),choices,limit=preferences['fuzzymaxcount'],processor=None)
+    results = process.extract(uniprocess(name),choices,limit=preferences['fuzzymaxcount'],processor=None)
     resultsabovemin = list(filter(lambda x: x[1] >= preferences['fuzzyminscore'],results))
     print('done.')
     if len(resultsabovemin) < preferences['fuzzymincount']:
