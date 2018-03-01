@@ -66,19 +66,24 @@ import lxml.html
 #pip install python-dateutil
 import dateutil
 import re
+import gzip
+import json
+
+
+from dateutil.parser import parse
 from xlrd import open_workbook
 
 # use a ListCtrl in report mode with a 
 # single column and with the header turned off.  It looks and acts almost like a ListBox in that case. 
 
     
-
+print('Imports complete.')
 modulefile = sys.modules[__name__].__file__
 modulefolder = os.path.dirname(modulefile)
-print(modulefolder)
+print('Source folder:',modulefolder)
 
 app = wx.App(False)  # Create a new app, don't redirect stdout/stderr to a window.
-
+print('Started wxApp')
 helptext = """BGG Interactive Upload Tool
 
 Update your boardgamegeek.com collection using this GUI interface. This program helps you interactively find the BGGID from a partial name or inexact match.
@@ -121,6 +126,7 @@ if the row does not have a 'id' and does have an 'objectname', the objectname is
 # http://www.iconarchive.com/show/pretty-office-7-icons-by-custom-icon-design/Save-as-icon.html
 class gui(bggupload_gui.mainframe):
     def __init__(self,parent):
+        print('Initializing windows')
         bggupload_gui.mainframe.__init__(self,parent)
         
         #self.itemselected = [] # index is row
@@ -331,6 +337,7 @@ class gui(bggupload_gui.mainframe):
         self.DeleteRow(rowobject)
         self.GetSizer().Layout()
  
+
 mframe = gui(None)
 
 def entrydialog(parent=mframe,label="Enter Value",value='',catch=True):
@@ -366,6 +373,8 @@ class wxoutput():
         # print
 # helpdialog
 # helptextbox
+
+print('About to redirect print output to debug window.')
 try:
     import __builtin__
 except ImportError:
@@ -382,7 +391,6 @@ def print(*args, **kwargs):
     #__builtin__.print('My overridden print() function!')
     return __builtin__.print(*args, **kwargs)
 
-    
 hd = bggupload_gui.helpdialog(None)        
 woutput = wxoutput(hd.helptextbox,'AppendText')
 hd.SetTitle("BGGUP Debugging Output")
@@ -390,6 +398,7 @@ hd.Show(True)
 print('Don\'t close this window!\n\nThis is the program debugging output. Closing this window results in unknown behavior.')
 
 
+print('Setting up threading')
 #######################################################
 #############   Threading Begin    ####################
 #######################################################
@@ -454,9 +463,6 @@ def heading(value):
     return value.upper().center(len(value)+8).center(70,'#')
 
 
-import gzip
-import json
-
         # for i in range(N):
             # uid = "whatever%i" % i
             # dv = [1, 2, 3]
@@ -505,6 +511,7 @@ class OutputManager():
     
     def __init__(self,filebase='BggUploadSaveFile'):
         # very inefficient, but should work
+        # find the next available numbered file
         count = 0
         while True:
             self.backupfile = '{}{:03d}{}'.format(filebase,count,'.csv')
@@ -530,6 +537,7 @@ class OutputManager():
                     pass
                 writer.writerow(row)
                 print('OUTPUT: ({})\n{}'.format(outputmgr.backupfile,row))
+
 outputmgr = OutputManager()
 
 cat = {
@@ -558,6 +566,7 @@ class ReadBGGResults():
         'thing'             :11,
     }
     def __init__(self):
+        print('Initializing internal data structures.')
         self.idlist = collections.defaultdict(set)
         self.idbyname = collections.defaultdict(set)
         self.fullbgg = collections.defaultdict(set)
@@ -773,6 +782,7 @@ print('Reading Name / BGGID database files.')
 s = jsonzipload(os.path.join(modulefolder,'data_json.zip'))
 fullbgg4 = {} #collections.defaultdict(list)
 #byid = {'thing':{},'family':{}}
+print('Processing database into internal data structures.')
 
 for line in s:
     #(category, itemid, itemtype, itemname, itemnametype, itemyear) = line
@@ -781,7 +791,7 @@ for line in s:
     if line.itemtype in ('thing','family'):#,'boardgameexpansion'):
         continue
     fullbgg4.setdefault((line.itemtype,line.itemid),[]).append(line)
-
+print('Done.')
 #print('FULLBGG4',set([itemtype for itemtype, itemid in fullbgg4.keys()]))
 # # here, check that every boardgameexpansion has a
 # # corresponding boardgame with same name and year
@@ -915,7 +925,6 @@ class import_coolstuffemail():
 #######################################################
 #############   Import Boardlandia    ###################
 #######################################################
-from dateutil.parser import parse
 class import_boardlandiaemail():
     """Be sure to capture the "Boardlandia (http...)" line so the importer can recognize
        Boardlandia email. Search 'boardlandia order confirmed'"""
@@ -1505,9 +1514,10 @@ class ImgPanel(wx.Panel,wx.ClientDataContainer):
         self._selected = False
         self._score = score
         # scale so 60-100 is 0-256
-        fromtorange = ((70,100),(0,256))
+        r = ((70,100),(0,255)) # fromtorange
         #gray = 70+(100-score)*256/30
-        gray = max((score - 70)*(256-0)/(100-70)+0,0)
+        #gray = max((score - 70)*(255-0)/(100-70)+0,0)
+        gray = max((score - r[0][0])*(r[1][1]-r[1][0])/(r[0][1]-r[0][0])+r[1][0],0)
         self.unselectedbgcolor = wx.Colour(gray,gray,gray)
         self.guiinstance = guiinstance
         wx.ClientDataContainer.__init__(self)
@@ -1608,6 +1618,7 @@ class ImgPanel(wx.Panel,wx.ClientDataContainer):
         #print('SetCurrent')
         self.SetBackgroundColour('green')
         self.Refresh()
+    # begin labeldata
         itype,id = item2idt[self]
         #names = '{} {}'.format(str(id),
         all = fullbgg4[(itype,id)]
@@ -1618,6 +1629,7 @@ class ImgPanel(wx.Panel,wx.ClientDataContainer):
             label='{} alt: {}'.format(' | '.join(pri),' | '.join(alt))
         else:
             label='{}'.format(' | '.join(pri))
+        # http://boardgamegeek.com/version/390930
         #print()
         data = mframe.GetRowData(self.GetParent())
         searchterm = data.get('searchterm',None) or data.get('objectname',None)
@@ -1625,10 +1637,11 @@ class ImgPanel(wx.Panel,wx.ClientDataContainer):
         mframe.infolink.SetToolTip('{}:{}'.format(itype,id))
         mframe.infolink.SetLabel(label)
         mframe.infolink.SetURL(r'https://boardgamegeek.com/{}/{}/'.format(cat[itype],str(id)))
+    # end labeldata
     
     def SetFocusImage( self, event ):
         imgpanel = event.GetEventObject()
-        print('sfi: {}'.format(item2idt[imgpanel]))
+        #print('sfi: {}'.format(item2idt[imgpanel]))
         self.SetCurrent()
         event.Skip()
 
@@ -1720,8 +1733,11 @@ def search(searchstring,exact=False):
     if exact:
         parameters['exact'] = '1'
     url = fullurl('search',parameters)
-    return getxmlresponse(url)
+    return getxmltree(url)
 import sys, traceback
+
+from bggapi import getxmltree
+
 def getxmlresponse(url):
     print(url)
     try:
@@ -1812,7 +1828,7 @@ def getthumbnails(idlist):
             ids = ','.join(idchunk)
             url = fullurl('thing',{'id':ids})#,'type':t})
             print(url)
-            for item in getxmlresponse(url):
+            for item in getxmltree(url).getroot():
                 id = item.attrib.get('id',None)
                 #t = item.attrib['type']
                 thumb = None
@@ -1826,10 +1842,10 @@ def getthumbnails(idlist):
     
 def getids(name):
     time.sleep(2)
-    tree = search(name,exact=1)
+    tree = search(name,exact=1).getroot()
     if len(tree) == 0:
         time.sleep(2)
-        tree = search(name)
+        tree = search(name).getroot()
     if len(tree) == 0:
         return [] #print("Can't find.")
     return tree2idts(tree)
@@ -2009,6 +2025,7 @@ def matchname(name):
     #itypes = set()
     
     if not choices:
+        print('Setting up internal search structure.')
         catidbyname = collections.defaultdict(list)
         catid_by_preprocessed_name = collections.defaultdict(list)
         for catid, lines in fullbgg4.items():
@@ -2021,9 +2038,10 @@ def matchname(name):
         #print('match types',itypes)
         choices = catid_by_preprocessed_name.keys()
 
+    print('Searching for "{}"'.format(name))
     results = process.extract(uniprocess(name),choices,limit=preferences['fuzzymaxcount'],processor=None)
     resultsabovemin = list(filter(lambda x: x[1] >= preferences['fuzzyminscore'],results))
-    print('done.')
+    print('Done.')
     if len(resultsabovemin) < preferences['fuzzymincount']:
         results = results[:preferences['fuzzymincount']]
     else:
@@ -2089,10 +2107,10 @@ def matchname_old(name):
 def searchname(name):
     print('Searching BGG for: {}...'.format(name),end='')
     time.sleep(2)
-    tree = search(name,exact=1)
+    tree = search(name,exact=1).getroot()
     if len(tree) == 0:
         time.sleep(2)
-        tree = search(name)
+        tree = search(name).getroot()
     if len(tree) == 0:
         print("Zero exact matches from boardgamegeek.com.")
     return tree
@@ -2264,11 +2282,15 @@ def process_csv(filename):
 # for row in p:
     # print ' '.join(row).encode("utf-8")
 
+print('Starting main window.')
 mframe.SetTitle(outputmgr.backupfile)
 #mframe.SetTitle(outputmgr.fullpath)
 mframe.Show(True)
+print('Starting status thread')
 StatusThreadStart()
+print('Starting main program loop.')
 app.MainLoop()
+print('Exiting.')
 sys.exit()
 
 url = r'https://www.boardgamegeek.com/xmlapi2/search?type=boardgame,boardgameaccessory,boardgameexpansion&query=yam'
